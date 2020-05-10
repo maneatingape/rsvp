@@ -1,3 +1,5 @@
+@lazyglobal off.
+
 global trig is lexicon(
 	// Regular trig functions using radians instead of degrees
 	"sin", {
@@ -35,14 +37,14 @@ global trig is lexicon(
 	}
 ).
 
-global function iterativeRootFinder {
-	parameter x0, f, epsilon, maxIterations.
+global function iterative_root_finder {
+	parameter x0, f, epsilon, max_iterations.
 
 	local x is x0.
 	local delta is abs(epsilon) + 1.
 	local iterations is 0.
 
-	until abs(delta) < epsilon or iterations = maxIterations {
+	until abs(delta) < epsilon or iterations = max_iterations {
         set delta to f(x).
         set x to x - delta.
         set iterations to iterations + 1.
