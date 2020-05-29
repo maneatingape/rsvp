@@ -42,11 +42,11 @@ runoncepath("util.ks").
 // mu Scalar gravity parameter
 // flip_direction Boolean Change transfer to prograde/retrograde
 global function lambert {
-	parameter r1, r2, tof, mu, flip_direction.
+    parameter r1, r2, tof, mu, flip_direction.
 
-	local m1 is r1:mag.
-	local m2 is r2:mag.
-	local c is (r1 - r2):mag.
+    local m1 is r1:mag.
+    local m2 is r2:mag.
+    local c is (r1 - r2):mag.
     local s is (m1 + m2 + c) / 2.
     local lambda is sqrt(1 - c / s).
     local t is tof * sqrt(2 * mu / s ^ 3).
@@ -59,9 +59,9 @@ global function lambert {
     local it2 is vcrs(ih, ir2):normalized.
 
     if flip_direction {
-    	set it1 to -it1.
-    	set it2 to -it2.
-    	set lambda to -lambda.
+        set it1 to -it1.
+        set it2 to -it2.
+        set lambda to -lambda.
     }
 
     // Determine Lancaster-Blanchard variable "x"
@@ -74,28 +74,28 @@ global function lambert {
     local rho is (m1 - m2) / c.
     local gamma is sqrt(mu * s / 2).
 
-	local vr1 is (lambda * y - x) - rho * (lambda * y + x).
-	local vr2 is (x - lambda * y) - rho * (lambda * y + x).
-	local vt is sqrt(1 - rho ^ 2) * (y + lambda * x).
+    local vr1 is (lambda * y - x) - rho * (lambda * y + x).
+    local vr2 is (x - lambda * y) - rho * (lambda * y + x).
+    local vt is sqrt(1 - rho ^ 2) * (y + lambda * x).
 
-	local v1 is (gamma / m1) * (vr1 * ir1 + vt * it1).
-	local v2 is (gamma / m2) * (vr2 * ir2 + vt * it2).
-	return lexicon("v1", v1, "v2", v2).
+    local v1 is (gamma / m1) * (vr1 * ir1 + vt * it1).
+    local v2 is (gamma / m2) * (vr2 * ir2 + vt * it2).
+    return lexicon("v1", v1, "v2", v2).
 }
 
 local function initial_guess {
-	parameter lambda, t.
+    parameter lambda, t.
 
     local t0 is trig:acos(lambda) + lambda * sqrt(1 - lambda ^ 2).
     local t1 is (2 / 3) * (1 - lambda ^ 3).
 
     if t >= t0 {
-		return (t0 / t) ^ (2 / 3) - 1.
-	} else if t <= t1 {
-		return (5 * t1 * (t1 - t)) / (2 * t * (1 - lambda ^ 5)) + 1.
-	} else {
-		return (t0 / t) ^ (ln(t1 / t0) / ln(2)) - 1.
-	}
+        return (t0 / t) ^ (2 / 3) - 1.
+    } else if t <= t1 {
+        return (5 * t1 * (t1 - t)) / (2 * t * (1 - lambda ^ 5)) + 1.
+    } else {
+        return (t0 / t) ^ (ln(t1 / t0) / ln(2)) - 1.
+    }
 }
 
 local function householders_method {
