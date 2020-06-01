@@ -1,10 +1,13 @@
-// This code solves Kepler's problem.
-// TODO: Description of rest of Kepler's problem
+// This code solves Kepler's problem to determine the position of a body
+// orbiting another parent body with classical Newtonian mechanics.
+// Given the traditional 6 Keplerian orbital elements and a time offet,
+// it returns Cartesian orbital state vectors (x,y,z components for position
+// and velocity) where the origin is the center of mass of the parent body.
 //
 // Based on the steps in the memorandum
 // "Keplerian Orbit Elements -> Cartesian State Vectors" by René Schwarz
 // https://downloads.rene-schwarz.com/download/M001-Keplerian_Orbit_Elements_to_Cartesian_State_Vectors.pdf
-
+//
 // Key simplifying differences:
 // * Eccentric anomaly is used to determine position, instead of true anomaly
 // * kOS provides built in support for vector rotations, so we can compose
@@ -14,7 +17,7 @@
 // functions that use radians are imported from the "util.ks" file, namespaced with "trig".
 
 @lazyglobal off.
-runoncepath("util.ks").
+runoncepath("kos-launch-window-finder/util.ks").
 
 // body: Celestial body e.g. Kerbin, Duna, Mun
 // t: Scalar time in seconds since epoch. e.g. time:seconds
@@ -80,6 +83,12 @@ global function orbitalStateVectors {
     return lexicon("position", position, "velocity", velocity).
 }
 
+local function newtons_method {
+    parameter e, m, ea.
+
+    return (m + e * trig:sin(ea) - ea) / (e * trig:cos(ea) - 1).
+}
+
 global function rotate_to_universe {
     parameter osv.
     
@@ -88,10 +97,4 @@ global function rotate_to_universe {
     local velocity is osv:velocity * rotation.
 
     return lexicon("position", position, "velocity", velocity).
-}
-
-local function newtons_method {
-    parameter e, m, ea.
-
-    return (m + e * trig:sin(ea) - ea) / (e * trig:cos(ea) - 1).
 }
