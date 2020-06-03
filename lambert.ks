@@ -34,7 +34,7 @@
 //   The standard hyperbolic trignometric functions are also defined in this file.
 
 @lazyglobal off.
-runoncepath("util.ks").
+runoncepath("kos-launch-window-finder/util.ks").
 
 // r1 Vector first cartesian position
 // r2 Vector second cartesian position

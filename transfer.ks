@@ -1,33 +1,30 @@
-runoncepath("lambert.ks").
-runoncepath("kepler.ks").
+runoncepath("kos-launch-window-finder/lambert.ks").
 
-//test1().
-//test2().
-//test3().
-//test4().
+test1().
+test2().
+test3().
+test4().
 
-local count is 0.
-local start is time:seconds.
+//local departureOffset is 0.
+//local timeOfFlight is tofInitialGuess(sun, kerbin, duna).
+//local stepSize is kerbinTimeToSeconds(0, 8, 0, 0, 0).
+//local threshold is kerbinTimeToSeconds(0, 1, 0, 0, 0).
 
-local t1 is kerbinTimeToSeconds(1, 236, 4, 19, 12).
-local t2 is kerbinTimeToSeconds(2, 69, 2, 36, 0).
-local tof is t2 - t1.
-local osv1 is orbitalStateVectors(kerbin, t1).
-local osv2 is orbitalStateVectors(duna, t2).
+//local t1 is departureOffset. //+time:seconds.
+//local t2 is departureOffset + timeOfFlight.
+//local retrogradeFlag is determineDirection(sun, kerbin, t1, duna, t2).
 
-until count = 1000 {
-	local solution is lambert(osv1:position, osv2:position, tof, sun:mu, false).
-	set count to count + 1.
-}
-print count + " iteration, took " + (time:seconds - start) + " seconds".
 
+//until stepSize < threshold {
+
+//}
 
 
 
 local function test1 {
 	local t1 is kerbinTimeToSeconds(1, 236, 4, 19, 12).
 	local t2 is kerbinTimeToSeconds(2, 69, 2, 36, 0).
-	transferDetails(sun, kerbin, t1, duna, t2).
+	transferDetails(sun, kerbin, t1, duna, t2, false).
 }
 
 local function test2 {
@@ -39,20 +36,35 @@ local function test2 {
 local function test3 {
 	local t1 is kerbinTimeToSeconds(1, 269, 1, 12, 0).
 	local t2 is kerbinTimeToSeconds(1, 405, 2, 327, 36).
-	transferDetails(sun, kerbin, t1, moho, t2, false).
+	transferDetails(sun, kerbin, t1, moho, t2, true).
 }
 
 local function test4 {
 	local t1 is kerbinTimeToSeconds(1, 3, 3, 36, 0).
 	local t2 is kerbinTimeToSeconds(1, 6, 1, 38, 31).
-	transferDetails(jool, laythe, t1, tylo, t2, true).
+	transferDetails(jool, laythe, t1, tylo, t2, false).
 }
 
+local function tofInitialGuess {
+	parameter focalBody, fromBody, toBody.
+
+	// Return the time of half a Hohmann transfer between the two bodies
+	local a is (fromBody:orbit:semimajoraxis + toBody:orbit:semimajoraxis) / 2.
+	return constant:pi * sqrt(a ^ 3 / focalBody:mu).
+}
+
+local function determineDirection {
+	parameter focalBody, fromBody, t1, toBody, t2, flip_direction.
+
+	local progradeDeltaV is totalDeltaV(sun, kerbin, t1, duna, t2, false).
+	local retrogradeDeltaV is totalDeltaV(sun, kerbin, t1, duna, t2, true).
+	return retrogradeDeltaV < progradeDeltaV.
+}
 
 local function transferDetails {
-	parameter focalBody, fromBody, t1, toBody, t2, retrograde is false.
+	parameter focalBody, fromBody, t1, toBody, t2, flip_direction.
 
-	local solution is transferDeltaV(focalBody, fromBody, t1, toBody, t2, retrograde).
+	local solution is transferDeltaV(focalBody, fromBody, t1, toBody, t2, flip_direction).
 	local ejection is ejectionDeltaV(fromBody, 100000, solution:dv1).
 	local insertion is insertionDeltaV(toBody, 100000, solution:dv2).
 
@@ -60,18 +72,29 @@ local function transferDetails {
 	print fromBody:name + " => " + toBody:name.
 	print "Ejection: " + ejection.
 	print "Insertion: " + insertion.
-	print "Total: " + (ejection + insertion).	
+	print "Total: " + (ejection + insertion).
+}
+
+local function totalDeltaV {
+	parameter focalBody, fromBody, t1, toBody, t2, flip_direction.
+
+	local solution is transferDeltaV(focalBody, fromBody, t1, toBody, t2, flip_direction).
+	local ejection is ejectionDeltaV(fromBody, 100000, solution:dv1).
+	local insertion is insertionDeltaV(toBody, 100000, solution:dv2).
+
+	return ejection + insertion.
 }
 
 local function transferDeltaV {
-	parameter focalBody, fromBody, t1, toBody, t2, retrograde.
+	parameter focalBody, fromBody, t1, toBody, t2, flip_direction.
 
-	local osv1 is orbitalStateVectors(fromBody, t1).
-	local osv2 is orbitalStateVectors(toBody, t2).
-	local tof is t2 - t1.
-	local solution is lambert(osv1:position, osv2:position, tof, focalBody:mu, retrograde).
+	local r1 is positionat(fromBody, t1) - focalBody:position.
+	local r2 is positionat(toBody, t2) - focalBody:position.
+	local solution is lambert(r1, r2, t2 - t1, focalBody:mu, flip_direction).
 
-	return lexicon("dv1", solution:v1 - osv1:velocity, "dv2", osv2:velocity - solution:v2).
+	local v1 is velocityat(fromBody, t1):orbit.
+	local v2 is velocityat(toBody, t2):orbit.
+	return lexicon("dv1", solution:v1 - v1, "dv2", v2 - solution:v2).
 }
 
 function ejectionDeltaV {
