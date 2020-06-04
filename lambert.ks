@@ -103,7 +103,7 @@ local function householders_method {
 
     local a is 1 / (1 - x ^ 2).
     local y is sqrt(1 - lambda ^ 2 * (1 - x ^ 2)).
-    local tau is time_of_flight(lambda, a, x).
+    local tau is time_of_flight_2(lambda, a, x).
 
     local dt is a * (3 * tau * x - 2 + 2 * (lambda ^ 3) * x / y).
     local ddt is a * (3 * tau + 5 * x * dt + 2 * (1 - lambda ^ 2) * (lambda ^ 3) / (y ^ 3)).
@@ -124,11 +124,22 @@ local function time_of_flight {
         local beta is 2 * trig:asin(sqrt(lambda ^ 2 / a)) * sign.
         return (a ^ 1.5 * ((alpha - trig:sin(alpha)) - (beta - trig:sin(beta)))) / 2.
     } else {
-        // A hyperbolic trajectory is extremely unlikely to be the lowest
-        // possible dV transfer however we calculate it anyway to be thorough.
         set a to -a.
         local alpha is 2 * trig:acosh(x).
         local beta is 2 * trig:asinh(sqrt(lambda ^ 2 / a)) * sign.
         return (a ^ 1.5 * ((beta - trig:sinh(beta)) - (alpha - trig:sinh(alpha)))) / 2.
     }
+}
+
+local function time_of_flight_2 {
+    parameter lambda, a, x.
+
+    local e is x ^ 2 - 1.
+    local y is sqrt(abs(e)).
+    local z is sqrt(1 + lambda ^ 2 * e).
+
+    local g is x * z - lambda * e.    
+    local d is choose trig:acos(g) if e < 0 else ln(y * (z - lambda * x) + g).
+    
+    return (x - lambda * z - d / y) / e.
 }

@@ -1,25 +1,92 @@
 runoncepath("kos-launch-window-finder/lambert.ks").
 
-test1().
-test2().
-test3().
-test4().
+// Default is 250, increase speed 8x
+set config:ipu to 2000.
 
-//local departureOffset is 0.
-//local timeOfFlight is tofInitialGuess(sun, kerbin, duna).
-//local stepSize is kerbinTimeToSeconds(0, 8, 0, 0, 0).
-//local threshold is kerbinTimeToSeconds(0, 1, 0, 0, 0).
+//test1().
+//test2().
+//test3().
+//test4().
 
-//local t1 is departureOffset. //+time:seconds.
-//local t2 is departureOffset + timeOfFlight.
-//local retrogradeFlag is determineDirection(sun, kerbin, t1, duna, t2).
+// TODO:
+// Free arctan angle based on gradient?
+// Multiple starting points
 
 
-//until stepSize < threshold {
+//gradientDescent(sun, kerbin, duna).
+//gradientDescent(sun, kerbin, moho).
+gradientDescent(sun, kerbin, eeloo).
 
-//}
+function gradientDescent {
+	parameter focalBody, fromBody, toBody.
 
+	local stepSize is kerbinTimeToSeconds(1, 9, 0, 0, 0).
+	local threshold is kerbinTimeToSeconds(1, 1, 1, 0, 0).
 
+	local t1 is 40 * stepSize.
+	local t2 is t1 + tofInitialGuess(focalBody, fromBody, toBody).
+
+	local progradeDeltaV is totalDeltaV(focalBody, fromBody, toBody, false, t1, t2).
+	local retrogradeDeltaV is totalDeltaV(focalBody, fromBody, toBody, true, t1, t2).
+	local flipDirection is retrogradeDeltaV < progradeDeltaV.
+
+	local cost is totalDeltaV@:bind(focalBody, fromBody, toBody, flipDirection).
+	local current is choose retrogradeDeltaV if flipDirection else progradeDeltaV.
+	local dx is 0.
+	local dy is 0.
+
+	until stepSize < threshold {
+		print "-------".
+		print secondsToKerbinTime(t1).
+		print secondsToKerbinTime(t2).
+
+		local minX is 0.
+		local minY is 0.
+
+		if dx = 0 and dy = 0 {
+			local north is cost(t1, t2 + stepSize).
+			local south is cost(t1, t2 - stepSize).
+			local east is cost(t1 + stepSize, t2 + stepSize).
+			local west is cost(t1 - stepSize, t2 - stepSize).
+
+			if north < south {
+				set minY to north.
+				set dy to stepSize.
+			} else {
+				set minY to south.
+				set dy to -stepSize.
+			}
+
+			if east < west {
+				set minX to east.
+				set dx to stepSize.
+			} else {
+				set minX to west.
+				set dx to -stepSize.
+			}
+		} else {
+			set minX to cost(t1 + dx, t2 + dx).
+			set minY to cost(t1, t2 + dy).
+		}
+
+		if current < minX and current < minY {
+			set dx to 0.
+			set dy to 0.
+			set stepSize to stepSize / 2.
+		} else if minX < minY {
+			set current to minX.
+			set t1 to t1 + dx.
+			set t2 to t2 + dx.
+		} else {
+			set current to minY.
+			set t2 to t2 + dy.
+		}
+	}
+
+	print round(current).
+	print secondsToKerbinTime(t1).
+	print secondsToKerbinTime(t2).
+}
 
 local function test1 {
 	local t1 is kerbinTimeToSeconds(1, 236, 4, 19, 12).
@@ -53,14 +120,6 @@ local function tofInitialGuess {
 	return constant:pi * sqrt(a ^ 3 / focalBody:mu).
 }
 
-local function determineDirection {
-	parameter focalBody, fromBody, t1, toBody, t2, flip_direction.
-
-	local progradeDeltaV is totalDeltaV(sun, kerbin, t1, duna, t2, false).
-	local retrogradeDeltaV is totalDeltaV(sun, kerbin, t1, duna, t2, true).
-	return retrogradeDeltaV < progradeDeltaV.
-}
-
 local function transferDetails {
 	parameter focalBody, fromBody, t1, toBody, t2, flip_direction.
 
@@ -70,13 +129,13 @@ local function transferDetails {
 
 	print "-----------------------------".
 	print fromBody:name + " => " + toBody:name.
-	print "Ejection: " + ejection.
-	print "Insertion: " + insertion.
-	print "Total: " + (ejection + insertion).
+	print "Ejection: " + round(ejection).
+	print "Insertion: " + round(insertion).
+	print "Total: " + round(ejection + insertion).
 }
 
 local function totalDeltaV {
-	parameter focalBody, fromBody, t1, toBody, t2, flip_direction.
+	parameter focalBody, fromBody, toBody, flip_direction, t1, t2.
 
 	local solution is transferDeltaV(focalBody, fromBody, t1, toBody, t2, flip_direction).
 	local ejection is ejectionDeltaV(fromBody, 100000, solution:dv1).
@@ -92,9 +151,9 @@ local function transferDeltaV {
 	local r2 is positionat(toBody, t2) - focalBody:position.
 	local solution is lambert(r1, r2, t2 - t1, focalBody:mu, flip_direction).
 
-	local v1 is velocityat(fromBody, t1):orbit.
-	local v2 is velocityat(toBody, t2):orbit.
-	return lexicon("dv1", solution:v1 - v1, "dv2", v2 - solution:v2).
+	local dv1 is solution:v1 - velocityat(fromBody, t1):orbit.
+	local dv2 is solution:v2 - velocityat(toBody, t2):orbit.
+	return lexicon("dv1", dv1, "dv2", dv2).
 }
 
 function ejectionDeltaV {
@@ -135,4 +194,11 @@ function kerbinTimeToSeconds {
 	local _years is 426 * _days.
 
 	return _years * (years - 1) + _days * (days - 1) + _hours * hours + _minutes * minutes + seconds.
+}
+
+function secondsToKerbinTime {
+	parameter seconds.
+
+	local timespan is time(seconds).
+	return timespan:calendar + " " + timespan:clock.
 }

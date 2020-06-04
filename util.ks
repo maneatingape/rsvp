@@ -37,7 +37,7 @@ global trig is lexicon(
     }
 ).
 
-// Helper function to run root iterative root finding algorithsm
+// Helper function to run iterative root finding algorithsm
 // such as Newton's or Householder's methods.
 global function iterative_root_finder {
     parameter x0, f, epsilon, max_iterations.
