@@ -14,7 +14,7 @@
 //
 // Major simplifying differences:
 // * Multi-revolution transfer orbits are not considered
-// * Time of flight is always calculated using Lagrange's formula
+// * Time of flight is always calculated using Lancaster's formula
 //
 // Minor syntactical changes:
 // * As kOS is case-insensitive and also to increase clarity, the magnitude of
@@ -28,13 +28,8 @@
 //   it is surrounded by parentheses in order to aid clarity.
 // * kOS syntax supports vector multiplication and addition, considerably
 //   simplifying the syntax when calculating v1 and v2.
-// * kOS trignometric functions use degrees instead of radians. As all equations
-//   in this algorithm expect radians, variants of the trignometric functions
-//   that use radians are imported from the "util.ks" file, namespaced with "trig".
-//   The standard hyperbolic trignometric functions are also defined in this file.
 
 @lazyglobal off.
-runoncepath("kos-launch-window-finder/util.ks").
 
 // r1 Vector first cartesian position
 // r2 Vector second cartesian position
@@ -86,7 +81,7 @@ global function lambert {
 local function initial_guess {
     parameter lambda, t.
 
-    local t0 is trig:acos(lambda) + lambda * sqrt(1 - lambda ^ 2).
+    local t0 is acos(lambda) + lambda * sqrt(1 - lambda ^ 2).
     local t1 is (2 / 3) * (1 - lambda ^ 3).
 
     if t >= t0 {
@@ -101,45 +96,70 @@ local function initial_guess {
 local function householders_method {
     parameter lambda, t, x.
 
-    local a is 1 / (1 - x ^ 2).
-    local y is sqrt(1 - lambda ^ 2 * (1 - x ^ 2)).
-    local tau is time_of_flight_2(lambda, a, x).
-
-    local dt is a * (3 * tau * x - 2 + 2 * (lambda ^ 3) * x / y).
-    local ddt is a * (3 * tau + 5 * x * dt + 2 * (1 - lambda ^ 2) * (lambda ^ 3) / (y ^ 3)).
-    local dddt is a * (7 * x * ddt + 8 * dt - 6 * (1 - lambda ^ 2) * (lambda ^ 5) * x / (y ^ 5)).
+    local a is 1 - x ^ 2.
+    local y is sqrt(1 - lambda ^ 2 * a).
+    local tau is time_of_flight(lambda, a, x, y).
 
     local delta is tau - t.
+    local dt is (3 * tau * x - 2 + 2 * (lambda ^ 3) * x / y) / a.
+    local ddt is (3 * tau + 5 * x * dt + 2 * (1 - lambda ^ 2) * (lambda ^ 3) / (y ^ 3)) / a.
+    local dddt is (7 * x * ddt + 8 * dt - 6 * (1 - lambda ^ 2) * (lambda ^ 5) * x / (y ^ 5)) / a.
+
     return delta * (dt ^ 2 - delta * ddt / 2) / (dt * (dt ^ 2 - delta * ddt) + (dddt * delta ^ 2) / 6).
 }
 
+// Calculate the time of flight using Lancaster's formula
 local function time_of_flight {
-    parameter lambda, a, x.
+    parameter lambda, a, x, y.
 
-    local sign is choose -1 if lambda < 0 else 1.
+    update_stats(x).
 
-    if a > 0 {
-        // Elliptical
-        local alpha is 2 * trig:acos(x).
-        local beta is 2 * trig:asin(sqrt(lambda ^ 2 / a)) * sign.
-        return (a ^ 1.5 * ((alpha - trig:sin(alpha)) - (beta - trig:sin(beta)))) / 2.
-    } else {
-        set a to -a.
-        local alpha is 2 * trig:acosh(x).
-        local beta is 2 * trig:asinh(sqrt(lambda ^ 2 / a)) * sign.
-        return (a ^ 1.5 * ((beta - trig:sinh(beta)) - (alpha - trig:sinh(alpha)))) / 2.
-    }
+    local f is sqrt(abs(a)).
+    local g is lambda * a + x * y.
+    local d is choose acos(g) if a > 0 else ln(f * (y - lambda * x) + g).
+    
+    return (lambda * y + d / f - x) / a.
 }
 
-local function time_of_flight_2 {
-    parameter lambda, a, x.
+// Helper function to run iterative root finding algorithms
+local function iterative_root_finder {
+    parameter x0, f, epsilon, max_iterations.
 
-    local e is x ^ 2 - 1.
-    local y is sqrt(abs(e)).
-    local z is sqrt(1 + lambda ^ 2 * e).
+    local x is x0.
+    local delta is abs(epsilon) + 1.
+    local iterations is 0.
 
-    local g is x * z - lambda * e.    
-    local d is choose trig:acos(g) if e < 0 else ln(y * (z - lambda * x) + g).
-    
-    return (x - lambda * z - d / y) / e.
+    until abs(delta) < epsilon or iterations = max_iterations {
+        set delta to f(x).
+        set x to x - delta.
+        set iterations to iterations + 1.
+    }
+
+    return x.
+}
+
+// Helper inverse cosine function that returns radians instead of degrees
+local function acos {
+    parameter x.
+    return constant:degtorad * arccos(x).
+}
+
+global battin is 0.
+global lagrange is 0.
+global lancaster is 0.
+
+global function print_stats {
+    print "-------".
+    print "Battin: " + battin.
+    print "Lagrange: " + lagrange.
+    print "Lancaster: " + lancaster.
+}
+
+local function update_stats {
+    parameter x.
+
+    local dist is abs(x - 1).
+    if dist < 0.01 set battin to battin +1.
+    else if dist < 0.2 set lagrange to lagrange + 1.
+    else set lancaster to lancaster + 1.    
 }

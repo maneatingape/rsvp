@@ -8,14 +8,15 @@ set config:ipu to 2000.
 //test3().
 //test4().
 
-// TODO:
-// Free arctan angle based on gradient?
-// Multiple starting points
+// TODO: Multiple starting points
 
 
-//gradientDescent(sun, kerbin, duna).
-//gradientDescent(sun, kerbin, moho).
+gradientDescent(sun, kerbin, duna).
+gradientDescent(sun, kerbin, moho).
 gradientDescent(sun, kerbin, eeloo).
+gradientDescent(jool, laythe, tylo).
+
+print_stats().
 
 function gradientDescent {
 	parameter focalBody, fromBody, toBody.
@@ -23,31 +24,53 @@ function gradientDescent {
 	local stepSize is kerbinTimeToSeconds(1, 9, 0, 0, 0).
 	local threshold is kerbinTimeToSeconds(1, 1, 1, 0, 0).
 
-	local t1 is 40 * stepSize.
-	local t2 is t1 + tofInitialGuess(focalBody, fromBody, toBody).
+	local offsetX is 40 * stepSize.
+	local offsetY is tofInitialGuess(focalBody, fromBody, toBody).
 
-	local progradeDeltaV is totalDeltaV(focalBody, fromBody, toBody, false, t1, t2).
-	local retrogradeDeltaV is totalDeltaV(focalBody, fromBody, toBody, true, t1, t2).
+	local progradeDeltaV is totalDeltaV(focalBody, fromBody, toBody, false, offsetX, offsetX + offsetY).
+	local retrogradeDeltaV is totalDeltaV(focalBody, fromBody, toBody, true, offsetX, offsetX + offsetY).
 	local flipDirection is retrogradeDeltaV < progradeDeltaV.
 
-	local cost is totalDeltaV@:bind(focalBody, fromBody, toBody, flipDirection).
+	local count is 0.
+	local cost is {
+		parameter offsetX, offsetY.
+
+		set count to count + 1.
+		return totalDeltaV(focalBody, fromBody, toBody, flipDirection, 0 + offsetX, 0 + offsetX + offsetY).
+	}.
+
 	local current is choose retrogradeDeltaV if flipDirection else progradeDeltaV.
 	local dx is 0.
 	local dy is 0.
+	local minX is 0.
+	local minY is 0.
 
 	until stepSize < threshold {
-		print "-------".
-		print secondsToKerbinTime(t1).
-		print secondsToKerbinTime(t2).
+		local nextX is max(offsetX + dx, threshold).
+		local nextY is max(offsetY + dy, threshold).
 
-		local minX is 0.
-		local minY is 0.
+		if dx <> 0 {
+			set minX to cost(nextX, offsetY).
+		} else {
+			local east is cost(offsetX + stepSize, offsetY).
+			local west is cost(max(offsetX - stepSize, threshold), offsetY).
 
-		if dx = 0 and dy = 0 {
-			local north is cost(t1, t2 + stepSize).
-			local south is cost(t1, t2 - stepSize).
-			local east is cost(t1 + stepSize, t2 + stepSize).
-			local west is cost(t1 - stepSize, t2 - stepSize).
+			if east < west {
+				set minX to east.
+				set dx to stepSize.
+			} else {
+				set minX to west.
+				set dx to -stepSize.
+			}
+
+			set nextX to max(offsetX + dx, threshold).
+		}
+
+		if dy <> 0 {
+			set minY to cost(offsetX, nextY).
+		} else {
+			local north is cost(offsetX, offsetY + stepSize).
+			local south is cost(offsetX, max(offsetY - stepSize, threshold)).
 
 			if north < south {
 				set minY to north.
@@ -57,16 +80,7 @@ function gradientDescent {
 				set dy to -stepSize.
 			}
 
-			if east < west {
-				set minX to east.
-				set dx to stepSize.
-			} else {
-				set minX to west.
-				set dx to -stepSize.
-			}
-		} else {
-			set minX to cost(t1 + dx, t2 + dx).
-			set minY to cost(t1, t2 + dy).
+			set nextY to max(offsetY + dy, threshold).
 		}
 
 		if current < minX and current < minY {
@@ -75,17 +89,18 @@ function gradientDescent {
 			set stepSize to stepSize / 2.
 		} else if minX < minY {
 			set current to minX.
-			set t1 to t1 + dx.
-			set t2 to t2 + dx.
+			set offsetX to nextX.
 		} else {
 			set current to minY.
-			set t2 to t2 + dy.
+			set offsetY to nextY.
 		}
 	}
 
+	print "-------".
+	print count.
 	print round(current).
-	print secondsToKerbinTime(t1).
-	print secondsToKerbinTime(t2).
+	print secondsToKerbinTime(0 + offsetX).
+	print secondsToKerbinTime(0 + offsetX + offsetY).
 }
 
 local function test1 {
