@@ -31,6 +31,7 @@
 
 @lazyglobal off.
 
+// Parameters:
 // r1 Vector first cartesian position
 // r2 Vector second cartesian position
 // tof Scalar seconds time of flight
@@ -114,11 +115,11 @@ local function time_of_flight {
 
     update_stats(x).
 
-    local f is sqrt(abs(a)).
-    local g is lambda * a + x * y.
-    local d is choose acos(g) if a > 0 else ln(f * (y - lambda * x) + g).
+    local b is sqrt(abs(a)).
+    local c is lambda * a + x * y.
+    local d is choose acos(c) if a > 0 else ln(b * (y - lambda * x) + c).
     
-    return (lambda * y + d / f - x) / a.
+    return (d / b - x + lambda * y) / a.
 }
 
 // Helper function to run iterative root finding algorithms
@@ -126,7 +127,7 @@ local function iterative_root_finder {
     parameter x0, f, epsilon, max_iterations.
 
     local x is x0.
-    local delta is abs(epsilon) + 1.
+    local delta is epsilon.
     local iterations is 0.
 
     until abs(delta) < epsilon or iterations = max_iterations {
