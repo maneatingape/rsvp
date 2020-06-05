@@ -118,7 +118,7 @@ local function time_of_flight {
     local b is sqrt(abs(a)).
     local c is lambda * a + x * y.
     local d is choose acos(c) if a > 0 else ln(b * (y - lambda * x) + c).
-    
+
     return (d / b - x + lambda * y) / a.
 }
 
@@ -162,5 +162,5 @@ local function update_stats {
     local dist is abs(x - 1).
     if dist < 0.01 set battin to battin +1.
     else if dist < 0.2 set lagrange to lagrange + 1.
-    else set lancaster to lancaster + 1.    
+    else set lancaster to lancaster + 1.
 }

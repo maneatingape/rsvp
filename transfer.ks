@@ -3,28 +3,36 @@ runoncepath("kos-launch-window-finder/lambert.ks").
 // Default is 250, increase speed 8x
 set config:ipu to 2000.
 
-//test1().
-//test2().
-//test3().
-//test4().
-
-// TODO: Multiple starting points
-
-
-gradientDescent(sun, kerbin, duna).
-gradientDescent(sun, kerbin, moho).
-gradientDescent(sun, kerbin, eeloo).
-gradientDescent(jool, laythe, tylo).
+iterated_gradient_descent(sun, kerbin, duna).
+//iterated_gradient_descent(sun, kerbin, moho).
+//iterated_gradient_descent(sun, kerbin, eeloo).
+//iterated_gradient_descent(jool, laythe, tylo).
+//iterated_gradient_descent(sun, kerbin, jool).
 
 print_stats().
 
-function gradientDescent {
+global function iterated_gradient_descent {
     parameter focalBody, fromBody, toBody.
 
-    local stepSize is kerbinTimeToSeconds(1, 9, 0, 0, 0).
-    local threshold is kerbinTimeToSeconds(1, 1, 1, 0, 0).
+    local from_period is fromBody:orbit:period.
+    local to_period is toBody:orbit:period.
+    local synodic_period is abs(from_period * to_period / (from_period - to_period)).
 
-    local offsetX is 40 * stepSize.
+    local start is 0.
+    local end is max(max(from_period, to_period), synodic_period).
+    local step is min(from_period, to_period).
+
+    for offset in range(start, end, step) {
+        gradient_descent(focalBody, fromBody, toBody, offset, step * 0.1).
+    }
+}
+
+local function gradient_descent {
+    parameter focalBody, fromBody, toBody, baseOffset, stepSize.
+
+    local threshold is 3600.
+
+    local offsetX is stepSize + baseOffset.
     local offsetY is tofInitialGuess(focalBody, fromBody, toBody).
 
     local progradeDeltaV is totalDeltaV(focalBody, fromBody, toBody, false, offsetX, offsetX + offsetY).
@@ -103,50 +111,12 @@ function gradientDescent {
     print secondsToKerbinTime(0 + offsetX + offsetY).
 }
 
-local function test1 {
-    local t1 is kerbinTimeToSeconds(1, 236, 4, 19, 12).
-    local t2 is kerbinTimeToSeconds(2, 69, 2, 36, 0).
-    transferDetails(sun, kerbin, t1, duna, t2, false).
-}
-
-local function test2 {
-    local t1 is kerbinTimeToSeconds(2, 256, 3, 36, 0).
-    local t2 is kerbinTimeToSeconds(7, 19, 5, 31, 12).
-    transferDetails(sun, kerbin, t1, eeloo, t2, true).
-}
-
-local function test3 {
-    local t1 is kerbinTimeToSeconds(1, 269, 1, 12, 0).
-    local t2 is kerbinTimeToSeconds(1, 405, 2, 327, 36).
-    transferDetails(sun, kerbin, t1, moho, t2, true).
-}
-
-local function test4 {
-    local t1 is kerbinTimeToSeconds(1, 3, 3, 36, 0).
-    local t2 is kerbinTimeToSeconds(1, 6, 1, 38, 31).
-    transferDetails(jool, laythe, t1, tylo, t2, false).
-}
-
 local function tofInitialGuess {
     parameter focalBody, fromBody, toBody.
 
     // Return the time of half a Hohmann transfer between the two bodies
     local a is (fromBody:orbit:semimajoraxis + toBody:orbit:semimajoraxis) / 2.
     return constant:pi * sqrt(a ^ 3 / focalBody:mu).
-}
-
-local function transferDetails {
-    parameter focalBody, fromBody, t1, toBody, t2, flip_direction.
-
-    local solution is transferDeltaV(focalBody, fromBody, t1, toBody, t2, flip_direction).
-    local ejection is ejectionDeltaV(fromBody, 100000, solution:dv1).
-    local insertion is insertionDeltaV(toBody, 100000, solution:dv2).
-
-    print "-----------------------------".
-    print fromBody:name + " => " + toBody:name.
-    print "Ejection: " + round(ejection).
-    print "Insertion: " + round(insertion).
-    print "Total: " + round(ejection + insertion).
 }
 
 local function totalDeltaV {
@@ -171,7 +141,7 @@ local function transferDeltaV {
     return lexicon("dv1", dv1, "dv2", dv2).
 }
 
-function ejectionDeltaV {
+local function ejectionDeltaV {
     parameter body, altitude, dv1.
 
     local r1 is body:radius + altitude.
@@ -187,7 +157,7 @@ function ejectionDeltaV {
     return sqrt(escapeV ^ 2 + v1 ^ 2 - 2 * escapeV * v1 * cos(theta)).
 }
 
-function insertionDeltaV {
+local function insertionDeltaV {
     parameter body, altitude, dv2.
 
     local r1 is body:radius + altitude.
@@ -200,18 +170,7 @@ function insertionDeltaV {
     return sqrt(v2 ^ 2 - 2 * mu * (r1 - r2) / (r1 * r2)) - v1.
 }
 
-function kerbinTimeToSeconds {
-    parameter years, days, hours, minutes, seconds.
-
-    local _minutes is 60.
-    local _hours is 60 * _minutes.
-    local _days is 6 * _hours.
-    local _years is 426 * _days.
-
-    return _years * (years - 1) + _days * (days - 1) + _hours * hours + _minutes * minutes + seconds.
-}
-
-function secondsToKerbinTime {
+local function secondsToKerbinTime {
     parameter seconds.
 
     local timespan is time(seconds).
