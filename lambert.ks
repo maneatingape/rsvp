@@ -82,6 +82,9 @@ global function lambert {
     return lexicon("v1", v1, "v2", v2).
 }
 
+
+// The formulas for the initial guess of "x" are so accurate that on average
+// only 2 to 3 iterations of Householder's method below are needed to converge.
 local function initial_guess {
     parameter lambda, t.
 
@@ -97,6 +100,8 @@ local function initial_guess {
     }
 }
 
+// 3rd order Householder's method. For some context the method of order 1 is the
+// well known Newton's method and the method of order 2 is Halley's method.
 local function householders_method {
     parameter lambda, t, x.
 

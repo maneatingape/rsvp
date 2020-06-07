@@ -4,11 +4,11 @@ runoncepath("kos-launch-window-finder/orbit.ks").
 // Default is 250, increase speed 8x
 set config:ipu to 2000.
 
-iterated_gradient_descent(sun, kerbin, duna).
-//iterated_gradient_descent(sun, kerbin, moho).
-//iterated_gradient_descent(sun, kerbin, eeloo).
-//iterated_gradient_descent(jool, laythe, tylo).
-//iterated_gradient_descent(sun, kerbin, jool).
+iterated_hill_climb(sun, kerbin, duna).
+//iterated_hill_climb(sun, kerbin, moho).
+//iterated_hill_climb(sun, kerbin, eeloo).
+//iterated_hill_climb(jool, laythe, tylo).
+//iterated_hill_climb(sun, kerbin, jool).
 //test().
 
 local function test {
@@ -17,13 +17,13 @@ local function test {
     for fromBody in planets {
         for toBody in planets {
             if fromBody <> toBody {
-                iterated_gradient_descent(sun, fromBody, toBody).
+                iterated_hill_climb(sun, fromBody, toBody).
             }
         }
     }
 }
 
-local function iterated_gradient_descent {
+local function iterated_hill_climb {
     parameter focalBody, fromBody, toBody.
 
     local from_period is fromBody:orbit:period.
@@ -38,11 +38,11 @@ local function iterated_gradient_descent {
         print "-------".        
         print fromBody:name + " => " + toBody:name.
         print "Starting Offset: " + secondsToKerbinTime(offset).
-        gradient_descent(focalBody, fromBody, toBody, offset, step * 0.1).
+        hill_climb(focalBody, fromBody, toBody, offset, step * 0.1).
     }
 }
 
-local function gradient_descent {
+local function hill_climb {
     parameter focalBody, fromBody, toBody, baseOffset, stepSize.
 
     local threshold is 3600.
