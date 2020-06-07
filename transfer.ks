@@ -1,4 +1,5 @@
-runoncepath("kos-launch-window-finder/lambert.ks").
+@lazyglobal off.
+runoncepath("kos-launch-window-finder/orbit.ks").
 
 // Default is 250, increase speed 8x
 set config:ipu to 2000.
@@ -8,10 +9,21 @@ iterated_gradient_descent(sun, kerbin, duna).
 //iterated_gradient_descent(sun, kerbin, eeloo).
 //iterated_gradient_descent(jool, laythe, tylo).
 //iterated_gradient_descent(sun, kerbin, jool).
+//test().
 
-print_stats().
+local function test {
+    local planets is list(jool, dres, duna, kerbin).
 
-global function iterated_gradient_descent {
+    for fromBody in planets {
+        for toBody in planets {
+            if fromBody <> toBody {
+                iterated_gradient_descent(sun, fromBody, toBody).
+            }
+        }
+    }
+}
+
+local function iterated_gradient_descent {
     parameter focalBody, fromBody, toBody.
 
     local from_period is fromBody:orbit:period.
@@ -23,6 +35,9 @@ global function iterated_gradient_descent {
     local step is min(from_period, to_period).
 
     for offset in range(start, end, step) {
+        print "-------".        
+        print fromBody:name + " => " + toBody:name.
+        print "Starting Offset: " + secondsToKerbinTime(offset).
         gradient_descent(focalBody, fromBody, toBody, offset, step * 0.1).
     }
 }
@@ -31,20 +46,18 @@ local function gradient_descent {
     parameter focalBody, fromBody, toBody, baseOffset, stepSize.
 
     local threshold is 3600.
-
     local offsetX is stepSize + baseOffset.
-    local offsetY is tofInitialGuess(focalBody, fromBody, toBody).
+    local offsetY is tof_initial_guess(focalBody, fromBody, toBody).
 
-    local progradeDeltaV is totalDeltaV(focalBody, fromBody, toBody, false, offsetX, offsetX + offsetY).
-    local retrogradeDeltaV is totalDeltaV(focalBody, fromBody, toBody, true, offsetX, offsetX + offsetY).
+    local progradeDeltaV is total_deltav(focalBody, fromBody, toBody, false, offsetX, offsetX + offsetY).
+    local retrogradeDeltaV is total_deltav(focalBody, fromBody, toBody, true, offsetX, offsetX + offsetY).
     local flipDirection is retrogradeDeltaV < progradeDeltaV.
 
     local count is 0.
     local cost is {
         parameter offsetX, offsetY.
 
-        set count to count + 1.
-        return totalDeltaV(focalBody, fromBody, toBody, flipDirection, 0 + offsetX, 0 + offsetX + offsetY).
+        return total_deltav(focalBody, fromBody, toBody, flipDirection, 0 + offsetX, 0 + offsetX + offsetY).
     }.
 
     local current is choose retrogradeDeltaV if flipDirection else progradeDeltaV.
@@ -104,70 +117,9 @@ local function gradient_descent {
         }
     }
 
-    print "-------".
-    print count.
-    print round(current).
-    print secondsToKerbinTime(0 + offsetX).
-    print secondsToKerbinTime(0 + offsetX + offsetY).
-}
-
-local function tofInitialGuess {
-    parameter focalBody, fromBody, toBody.
-
-    // Return the time of half a Hohmann transfer between the two bodies
-    local a is (fromBody:orbit:semimajoraxis + toBody:orbit:semimajoraxis) / 2.
-    return constant:pi * sqrt(a ^ 3 / focalBody:mu).
-}
-
-local function totalDeltaV {
-    parameter focalBody, fromBody, toBody, flip_direction, t1, t2.
-
-    local solution is transferDeltaV(focalBody, fromBody, t1, toBody, t2, flip_direction).
-    local ejection is ejectionDeltaV(fromBody, 100000, solution:dv1).
-    local insertion is insertionDeltaV(toBody, 100000, solution:dv2).
-
-    return ejection + insertion.
-}
-
-local function transferDeltaV {
-    parameter focalBody, fromBody, t1, toBody, t2, flip_direction.
-
-    local r1 is positionat(fromBody, t1) - focalBody:position.
-    local r2 is positionat(toBody, t2) - focalBody:position.
-    local solution is lambert(r1, r2, t2 - t1, focalBody:mu, flip_direction).
-
-    local dv1 is solution:v1 - velocityat(fromBody, t1):orbit.
-    local dv2 is solution:v2 - velocityat(toBody, t2):orbit.
-    return lexicon("dv1", dv1, "dv2", dv2).
-}
-
-local function ejectionDeltaV {
-    parameter body, altitude, dv1.
-
-    local r1 is body:radius + altitude.
-    local r2 is body:soiradius.
-
-    local mu is body:mu.
-    local v1 is sqrt(mu / r1).
-    local v2 is dv1:mag.
-
-    local theta is vang(dv1, v(dv1:x, 0, dv1:z)).
-    local escapeV is sqrt(v2 ^ 2 - 2 * mu * (r1 - r2) / (r1 * r2)).
-
-    return sqrt(escapeV ^ 2 + v1 ^ 2 - 2 * escapeV * v1 * cos(theta)).
-}
-
-local function insertionDeltaV {
-    parameter body, altitude, dv2.
-
-    local r1 is body:radius + altitude.
-    local r2 is body:soiradius.
-
-    local mu is body:mu.
-    local v1 is sqrt(mu / r1).
-    local v2 is dv2:mag.
-
-    return sqrt(v2 ^ 2 - 2 * mu * (r1 - r2) / (r1 * r2)) - v1.
+    print "Departure: " + secondsToKerbinTime(0 + offsetX).
+    print "Arrival: " + secondsToKerbinTime(0 + offsetX + offsetY).
+    print "Delta V: " + round(current).
 }
 
 local function secondsToKerbinTime {

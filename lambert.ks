@@ -1,3 +1,5 @@
+@lazyglobal off.
+
 // This code is a kOS port of the PyKep project Lambert's problem solver,
 // developed by the European Space Agency, available at
 // https://github.com/esa/pykep
@@ -28,15 +30,16 @@
 //   it is surrounded by parentheses in order to aid clarity.
 // * kOS syntax supports vector multiplication and addition, considerably
 //   simplifying the syntax when calculating v1 and v2.
-
-@lazyglobal off.
-
+// * The time of flight function uses some already calculated variables from the
+//   householder function. Variable names and the signs of some formulas are
+//   changed to match.
+//
 // Parameters:
-// r1 Vector first cartesian position
-// r2 Vector second cartesian position
-// tof Scalar seconds time of flight
-// mu Scalar gravity parameter
-// flip_direction Boolean Change transfer to prograde/retrograde
+// r1 [Vector] First cartesian position
+// r2 [Vector] Second cartesian position
+// tof [Scalar] Time of flight
+// mu [Scalar] Standard gravity parameter
+// flip_direction [Boolean] Change transfer between prograde/retrograde
 global function lambert {
     parameter r1, r2, tof, mu, flip_direction.
 
@@ -82,7 +85,7 @@ global function lambert {
 local function initial_guess {
     parameter lambda, t.
 
-    local t0 is acos(lambda) + lambda * sqrt(1 - lambda ^ 2).
+    local t0 is constant:degtorad * arccos(lambda) + lambda * sqrt(1 - lambda ^ 2).
     local t1 is (2 / 3) * (1 - lambda ^ 3).
 
     if t >= t0 {
@@ -113,11 +116,9 @@ local function householders_method {
 local function time_of_flight {
     parameter lambda, a, x, y.
 
-    update_stats(x).
-
     local b is sqrt(abs(a)).
     local c is lambda * a + x * y.
-    local d is choose acos(c) if a > 0 else ln(b * (y - lambda * x) + c).
+    local d is choose constant:degtorad * arccos(c) if a > 0 else ln(b * (y - lambda * x) + c).
 
     return (d / b - x + lambda * y) / a.
 }
@@ -126,8 +127,8 @@ local function time_of_flight {
 local function iterative_root_finder {
     parameter x0, f, epsilon, max_iterations.
 
-    local x is x0.
     local delta is epsilon.
+    local x is x0.
     local iterations is 0.
 
     until abs(delta) < epsilon or iterations = max_iterations {
@@ -137,30 +138,4 @@ local function iterative_root_finder {
     }
 
     return x.
-}
-
-// Helper inverse cosine function that returns radians instead of degrees
-local function acos {
-    parameter x.
-    return constant:degtorad * arccos(x).
-}
-
-global battin is 0.
-global lagrange is 0.
-global lancaster is 0.
-
-global function print_stats {
-    print "-------".
-    print "Battin: " + battin.
-    print "Lagrange: " + lagrange.
-    print "Lancaster: " + lancaster.
-}
-
-local function update_stats {
-    parameter x.
-
-    local dist is abs(x - 1).
-    if dist < 0.01 set battin to battin +1.
-    else if dist < 0.2 set lagrange to lagrange + 1.
-    else set lancaster to lancaster + 1.
 }
