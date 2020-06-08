@@ -43,6 +43,7 @@
 global function lambert {
     parameter r1, r2, tof, mu, flip_direction.
 
+    // Calculate "lamdba" and normalized time of flight "t" 
     local m1 is r1:mag.
     local m2 is r2:mag.
     local c is (r1 - r2):mag.
@@ -57,13 +58,14 @@ global function lambert {
     local it1 is vcrs(ih, ir1):normalized.
     local it2 is vcrs(ih, ir2):normalized.
 
+    // Flip direction if requested.
     if flip_direction {
         set it1 to -it1.
         set it2 to -it2.
         set lambda to -lambda.
     }
 
-    // Determine Lancaster-Blanchard variable "x"
+    // Determine Lancaster-Blanchard variable "x".
     local x0 is initial_guess(lambda, t).
     local f is householders_method@:bind(lambda, t).
     local x is iterative_root_finder(x0, f, 1e-5, 15).
@@ -81,7 +83,6 @@ global function lambert {
     local v2 is (gamma / m2) * (vr2 * ir2 + vt * it2).
     return lexicon("v1", v1, "v2", v2).
 }
-
 
 // The formulas for the initial guess of "x" are so accurate that on average
 // only 2 to 3 iterations of Householder's method below are needed to converge.
@@ -117,7 +118,7 @@ local function householders_method {
     return delta * (dt ^ 2 - delta * ddt / 2) / (dt * (dt ^ 2 - delta * ddt) + (dddt * delta ^ 2) / 6).
 }
 
-// Calculate the time of flight using Lancaster's formula
+// Calculate the time of flight using Lancaster's formula.
 local function time_of_flight {
     parameter lambda, a, x, y.
 
@@ -128,7 +129,7 @@ local function time_of_flight {
     return (d / b - x + lambda * y) / a.
 }
 
-// Helper function to run iterative root finding algorithms
+// Helper function to run iterative root finding algorithms.
 local function iterative_root_finder {
     parameter x0, f, epsilon, max_iterations.
 

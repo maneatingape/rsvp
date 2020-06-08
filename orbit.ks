@@ -1,15 +1,15 @@
 @lazyglobal off.
 runoncepath("kos-launch-window-finder/lambert.ks").
 
-// Calculates the transfer time of an idealised Hohmann transfer between
-// two planets. This only needs to be approximate in order to provide an inital
-// guess when searching the porkchop plot provided by the Lambert solver.
+// Calculate the time of flight for an idealised Hohmann transfer between
+// two planets. This value only needs to be approximate in order to provide an
+// inital guess when searching the porkchop plot provided by the Lambert solver.
 //
 // Simplifying assumptions:
 // * Both planet's orbits are circular (eccentricity is ignored).
-// * Transfer angle is exactly 180 degress.
+// * Transfer angle is exactly 180 degrees.
 //
-// This implies that the idealised transfer orbit is an elliptical orbit with a
+// This means that the idealised transfer orbit is an elliptical orbit with a
 // semi-major axis equal to the average of both planet's semi-major axes.
 // Time of flight can then be calculated analytically using Kepler's 3rd law
 // as half of the total period.
@@ -25,6 +25,9 @@ global function tof_initial_guess {
     return constant:pi * sqrt(a ^ 3 / focalBody:mu).
 }
 
+// Calculate the delta-v required to transfer between two planets at the
+// specified times. 
+//
 // Parameters:
 // focalBody [Body] Common parent of "fromBody" and "toBody".
 // fromBody [Body] Departure planet that vessel will leave from.
@@ -64,7 +67,7 @@ local function transfer_deltav {
     return lexicon("dv1", dv1, "dv2", dv2).
 }
 
-// Calculates the delta-v required to eject into a hyperbolic transfer orbit
+// Calculate the delta-v required to eject into a hyperbolic transfer orbit
 // at the correct inclination from the desired altitude "r1".
 // Simplifying assumptions:
 // * Vessel is currently in a perfectly circular orbit at radius "r1" and
@@ -75,16 +78,17 @@ local function transfer_deltav {
 //   Lambert transfer velocity.
 //
 // In KSP's coordinate system, the positive y axis sticks straight up from
-// Kerbol's north pole. Therefore to calculate the desired angle "theta" between
-// the flat circular orbit and the inclined ejection orbit, we use the handy
-// built in "vectorangle" function between the original transfer velocity vector
-// and the same vector with the y coordinate zeroed out.
+// Kerbol's north pole. Therefore the desired angle "i" between
+// the flat circular orbit and the inclined ejection orbit is the angle between
+// the original transfer velocity vector and the same vector with the
+// y coordinate zeroed out. 
 //
-// Now we have a triangle with adjacent sides "v1" and escapeV" with angle
-// "theta" between them. The cosine rule gives the length of the 3rd side
-// that is the magnitude of our required delta-v.
+// Now we have a triangle with adjacent sides "v1" and ve" with angle
+// "i" between them. The length of the 3rd side is the magnitude of our required
+// delta-v and can be determined using the cosine rule. We calculate the cosine
+// directly from the magnitudes of "v2" and the adjusted v2 with zero y component.
 //
-// See the next comment section  below for details on how "v1" and "escapev"
+// See the next comment section  below for details on how "v1" and "ve"
 // are calculated.
 local function ejection_deltav {
     parameter body, altitude, dv1.
@@ -95,13 +99,13 @@ local function ejection_deltav {
 
     local v1 is sqrt(mu / r1).
     local v2 is dv1:mag.
-    local escapev is sqrt(v2 ^ 2 + 2 * mu * (r2 - r1) / (r1 * r2)).
+    local ve is sqrt(v2 ^ 2 + 2 * mu * (r2 - r1) / (r1 * r2)).
 
-    local theta is vectorangle(dv1, v(dv1:x, 0, dv1:z)).
-    return sqrt(escapev ^ 2 + v1 ^ 2 - 2 * escapev * v1 * cos(theta)).
+    local cos_i is v(dv1:x, 0, dv1:z):mag / v2.
+    return sqrt(ve ^ 2 + v1 ^ 2 - 2 * ve * v1 * cos_i).
 }
 
-// Calculates the delta-v required to convert a hyperbolic intercept orbit
+// Calculate the delta-v required to convert a hyperbolic intercept orbit
 // into a circular orbit around the target planet at the desired altitude.
 // To simplify calculations no inclination change is made, so that the delta-v
 // required will simply be the difference between the hyperbolic velocity
@@ -110,8 +114,8 @@ local function ejection_deltav {
 // For a perfectly circular orbit at radius "r1" the orbital velocity "v1" is
 // straightforward to calculate using Kepler's 3rd law.
 //
-// Calculating the hyperbolic velocity at "r1" is more fun and can be solved by
-// applying the vis-visa equation twice.
+// Calculating the hyperbolic velocity (denoted "ve") is more fun and can be
+// determined by applying the vis-visa equation twice.
 // Our velocity "v2" at the edge of the SOI (radius denoted "r2") can be
 // closely approximated as the magnitude of the "dv2" vector.
 //
@@ -128,7 +132,7 @@ local function ejection_deltav {
 // [Equation 4] v ^ 2 = mu * (2 / r1 + (v2 ^ 2) / mu - 2 / r2)
 //
 // Re-arranging slightly:
-// [Equation 5] v ^ 2 = (v2 ^ 2) + 2 * mu * (r1 - r2) / (r1 * r2)
+// [Equation 5] v ^ 2 = (v2 ^ 2) + 2 * mu * (r2 - r1) / (r1 * r2)
 //
 // Taking the square root of equation 5 then subtracting 'v1" gives the delta-v
 // required to capture into a ciruclar orbit.
@@ -141,7 +145,7 @@ local function insertion_deltav {
 
     local v1 is sqrt(mu / r1).
     local v2 is dv2:mag.
-    local escapev is sqrt(v2 ^ 2 + 2 * mu * (r2 - r1) / (r1 * r2)).
+    local ve is sqrt(v2 ^ 2 + 2 * mu * (r2 - r1) / (r1 * r2)).
 
-    return escapev - v1.
+    return ve - v1.
 }
