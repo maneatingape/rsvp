@@ -35,11 +35,11 @@
 //   changed to match.
 //
 // Parameters:
-// r1 [Vector] First cartesian position
-// r2 [Vector] Second cartesian position
-// tof [Scalar] Time of flight
-// mu [Scalar] Standard gravity parameter
-// flip_direction [Boolean] Change transfer between prograde/retrograde
+// r1 [Vector] Position of the origin planet at departure time
+// r2 [Vector] Position of the destination planet at arrival time
+// tof [Scalar] Time of flight (arrival time minus departure time)
+// mu [Scalar] Standard gravitational parameter
+// flip_direction [Boolean] Change transfer direction between prograde/retrograde
 global function lambert {
     parameter r1, r2, tof, mu, flip_direction.
 
@@ -58,7 +58,7 @@ global function lambert {
     local it1 is vcrs(ih, ir1):normalized.
     local it2 is vcrs(ih, ir2):normalized.
 
-    // Flip direction if requested.
+    // Change transfer direction between prograde/retrograde.
     if flip_direction {
         set it1 to -it1.
         set it2 to -it2.

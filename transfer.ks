@@ -1,130 +1,116 @@
 @lazyglobal off.
-runoncepath("kos-launch-window-finder/orbit.ks").
+runoncepath("kos-launch-window-finder/search.ks").
 
-// Default is 250, increase speed 8x
+// Default value is 250, increase speed 8x as finding the lowest delta-v
+// transfer is computationally intensive.
 set config:ipu to 2000.
 
-iterated_hill_climb(sun, kerbin, duna).
-//iterated_hill_climb(sun, kerbin, moho).
-//iterated_hill_climb(sun, kerbin, eeloo).
-//iterated_hill_climb(jool, laythe, tylo).
-//iterated_hill_climb(sun, kerbin, jool).
-//test().
+find_transfer(kerbin, duna).
+find_transfer(kerbin, moho).
+find_transfer(kerbin, eeloo).
+find_transfer(laythe, tylo).
 
-local function test {
-    local planets is list(jool, dres, duna, kerbin).
+global function find_transfer {
+    parameter origin, destination, options is lexicon().
 
-    for fromBody in planets {
-        for toBody in planets {
-            if fromBody <> toBody {
-                iterated_hill_climb(sun, fromBody, toBody).
-            }
-        }
+    if origin:typename <> "body" return failure("Parameter 'origin' is not expected type Body").
+    if destination:typename <> "body" return failure("Parameter 'destination' is not expected type Body").
+    if options:typename <> "lexicon" return failure("Parameter 'options' is not expected type Lexicon").
+
+    if origin = destination return failure("'origin' and 'destination' must be different bodies").
+    if origin:body <> destination:body return failure("'origin' and 'destination' are not orbiting a direct common parent body").
+
+    // Departure time
+    local departure_time is -1.
+
+    if not options:haskey("departure_time") {
+        set departure_time to time():seconds.
     }
-}
-
-local function iterated_hill_climb {
-    parameter focalBody, fromBody, toBody.
-
-    local from_period is fromBody:orbit:period.
-    local to_period is toBody:orbit:period.
-    local synodic_period is abs(from_period * to_period / (from_period - to_period)).
-
-    local start is 0.
-    local end is max(max(from_period, to_period), synodic_period).
-    local step is min(from_period, to_period).
-
-    for offset in range(start, end, step) {
-        print "-------".        
-        print fromBody:name + " => " + toBody:name.
-        print "Starting Offset: " + secondsToKerbinTime(offset).
-        hill_climb(focalBody, fromBody, toBody, offset, step * 0.1).
+    else if options:departure_time:typename = "scalar" {
+        set departure_time to options:departure_time.
+        if departure_time < 0 return failure("Option 'departure_time' is negative").
     }
-}
-
-local function hill_climb {
-    parameter focalBody, fromBody, toBody, baseOffset, stepSize.
-
-    local threshold is 3600.
-    local offsetX is stepSize + baseOffset.
-    local offsetY is tof_initial_guess(focalBody, fromBody, toBody).
-
-    local progradeDeltaV is total_deltav(focalBody, fromBody, toBody, false, offsetX, offsetX + offsetY).
-    local retrogradeDeltaV is total_deltav(focalBody, fromBody, toBody, true, offsetX, offsetX + offsetY).
-    local flipDirection is retrogradeDeltaV < progradeDeltaV.
-
-    local count is 0.
-    local cost is {
-        parameter offsetX, offsetY.
-
-        return total_deltav(focalBody, fromBody, toBody, flipDirection, 0 + offsetX, 0 + offsetX + offsetY).
-    }.
-
-    local current is choose retrogradeDeltaV if flipDirection else progradeDeltaV.
-    local dx is 0.
-    local dy is 0.
-    local minX is 0.
-    local minY is 0.
-
-    until stepSize < threshold {
-        local nextX is max(offsetX + dx, threshold).
-        local nextY is max(offsetY + dy, threshold).
-
-        if dx <> 0 {
-            set minX to cost(nextX, offsetY).
-        } else {
-            local east is cost(offsetX + stepSize, offsetY).
-            local west is cost(max(offsetX - stepSize, threshold), offsetY).
-
-            if east < west {
-                set minX to east.
-                set dx to stepSize.
-            } else {
-                set minX to west.
-                set dx to -stepSize.
-            }
-
-            set nextX to max(offsetX + dx, threshold).
-        }
-
-        if dy <> 0 {
-            set minY to cost(offsetX, nextY).
-        } else {
-            local north is cost(offsetX, offsetY + stepSize).
-            local south is cost(offsetX, max(offsetY - stepSize, threshold)).
-
-            if north < south {
-                set minY to north.
-                set dy to stepSize.
-            } else {
-                set minY to south.
-                set dy to -stepSize.
-            }
-
-            set nextY to max(offsetY + dy, threshold).
-        }
-
-        if current < minX and current < minY {
-            set dx to 0.
-            set dy to 0.
-            set stepSize to stepSize / 2.
-        } else if minX < minY {
-            set current to minX.
-            set offsetX to nextX.
-        } else {
-            set current to minY.
-            set offsetY to nextY.
-        }
+    else if options:departure_time:typename = "timespan" {
+        set departure_time to options:departure_time:seconds.
+        if departure_time < 0 return failure("Option 'departure_time' is negative").
+    }
+    else {
+        return failure("Option 'departure_time' is not expected type of Scalar or TimeSpan").
     }
 
-    print "Departure: " + secondsToKerbinTime(0 + offsetX).
-    print "Arrival: " + secondsToKerbinTime(0 + offsetX + offsetY).
-    print "Delta V: " + round(current).
+    // Initial orbit
+    local initial_orbit is -1.
+
+    if not options:haskey("initial_orbit") {
+        set initial_orbit to 100000.
+    }
+    else if options:initial_orbit:typename = "scalar" {
+        set initial_orbit to options:initial_orbit.
+        if initial_orbit < 0 return failure("Option 'initial_orbit' is negative").
+    }
+    else {
+        return failure("Option 'initial_orbit' is not expected type of Scalar").
+    }
+
+    // Final orbit type
+    local final_orbit is -1.
+
+    if not options:haskey("final_orbit_type") {
+        set final_orbit to "circular".
+    }
+    else if option:final_orbit_type = "none" or option:final_orbit_type = "circular" or option:final_orbit_type = "elliptical" {
+        set final_orbit to option:final_orbit_type.
+    }
+    else {
+        return failure("Option 'final_orbit_type' is not one of expected values 'none', 'circular' or 'elliptical'").
+    }
+
+    // Final orbit periapsis
+    local final_orbit_pe is -1.
+
+    if not options:haskey("final_orbit_pe") {
+        set final_orbit_pe to 100000.
+    }
+    else if options:final_orbit_pe:typename = "scalar" {
+        set final_orbit_pe to options:final_orbit_pe.
+        if final_orbit_pe < 0 return failure("Option 'final_orbit_pe' must be greater than or equal to zero").
+    }
+    else {
+        return failure("Option 'final_orbit_pe' is not expected type Scalar").
+    }
+
+    // Maximum time of flight
+    local max_time_of_flight is -1.
+
+    if not options:haskey("max_time_of_flight") {
+        set max_time_of_flight to "unlimited".
+    }
+    else if options:max_time_of_flight:typename = "scalar" {
+        set max_time_of_flight to options:max_time_of_flight.
+        if max_time_of_flight <= 0 return failure("Option 'max_time_of_flight' must be greater than zero").
+    }
+    else {
+        return failure("Option 'max_time_of_flight' is not expected type Scalar").
+    }
+
+    // TODO:
+    //search_duration: Default calculated
+    // Vessel to vessel?
+    // Impatience factor?
+    
+    local parent is origin:body.
+
+    return iterated_hill_climb(parent, origin, destination).
 }
 
-local function secondsToKerbinTime {
-    parameter seconds.
+local function success {
+    parameter message.
 
-    local timespan is time(seconds).
-    return timespan:calendar + " " + timespan:clock.
+    return lexicon("success", true, "message", message).
+}
+
+local function failure {
+    parameter message.
+
+    return lexicon("success", false, "message", message).
 }

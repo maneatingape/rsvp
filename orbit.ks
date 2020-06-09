@@ -1,9 +1,9 @@
 @lazyglobal off.
 runoncepath("kos-launch-window-finder/lambert.ks").
 
-// Calculate the time of flight for an idealised Hohmann transfer between
+// Calculate the time of flight for an idealized Hohmann transfer orbit between
 // two planets. This value only needs to be approximate in order to provide an
-// inital guess when searching the porkchop plot provided by the Lambert solver.
+// inital guess when searching the solution space provided by the Lambert solver.
 //
 // Simplifying assumptions:
 // * Both planet's orbits are circular (eccentricity is ignored).
@@ -15,60 +15,59 @@ runoncepath("kos-launch-window-finder/lambert.ks").
 // as half of the total period.
 //
 // Parameters:
-// focalBody [Body] Common parent of "fromBody" and "toBody".
-// fromBody [Body] Departure planet that vessel will leave from.
-// toBody [Body] Destination planet that vessel will arrive at.
-global function tof_initial_guess {
-    parameter focalBody, fromBody, toBody.
+// parent [Body] Direct common parent of both "origin" and "destination".
+// origin [Body] Departure planet that vessel will leave from.
+// destination [Body] Destination planet that vessel will arrive at.
+global function ideal_hohmann_transfer_tof {
+    parameter parent, origin, destination.
 
-    local a is (fromBody:orbit:semimajoraxis + toBody:orbit:semimajoraxis) / 2.
-    return constant:pi * sqrt(a ^ 3 / focalBody:mu).
+    local a is (origin:orbit:semimajoraxis + destination:orbit:semimajoraxis) / 2.
+    return constant:pi * sqrt(a ^ 3 / parent:mu).
 }
 
-// Calculate the delta-v required to transfer between two planets at the
-// specified times. 
+// Calculate the total delta-v required to transfer between two planets.
 //
 // Parameters:
-// focalBody [Body] Common parent of "fromBody" and "toBody".
-// fromBody [Body] Departure planet that vessel will leave from.
-// toBody [Body] Destination planet that vessel will arrive at.
-// flip_direction [Boolean] Changes direction of the transfer from prograde to retrograde when set.
+// parent [Body] Direct common parent of both "origin" and "destination".
+// origin [Body] Departure planet that vessel will leave from.
+// destination [Body] Destination planet that vessel will arrive at.
+// flip_direction [Boolean] Change direction of the transfer from prograde to retrograde when set.
 // t1 [Scalar] Departure time in seconds from epoch. 
 // t2 [Scalar] Arrival time in seconds from epoch.
 global function total_deltav {
-    parameter focalBody, fromBody, toBody, flip_direction, t1, t2.
+    parameter parent, origin, destination, flip_direction, t1, t2.
 
-    local solution is transfer_deltav(focalBody, fromBody, t1, toBody, t2, flip_direction).
-    local ejection is ejection_deltav(fromBody, 100000, solution:dv1).
-    local insertion is insertion_deltav(toBody, 100000, solution:dv2).
+    local solution is transfer_deltav(parent, origin, t1, destination, t2, flip_direction).
+    local ejection is ejection_deltav(origin, 100000, solution:dv1).
+    local insertion is insertion_deltav(destination, 100000, solution:dv2).
 
     return ejection + insertion.
 }
 
 local function transfer_deltav {
-    parameter focalBody, fromBody, t1, toBody, t2, flip_direction.
+    parameter parent, origin, t1, destination, t2, flip_direction.
 
     // To determine the position of a planet at a specific time "t" relative to
     // its parent body using the "positionat" function, you must subtract the
     // *current* position of the parent body, not the position of the parent
     // body at time "t" as might be expected.
-    local r1 is positionat(fromBody, t1) - focalBody:position.
-    local r2 is positionat(toBody, t2) - focalBody:position.
+    local r1 is positionat(origin, t1) - parent:position.
+    local r2 is positionat(destination, t2) - parent:position.
 
     // Now that we know the positions of the planets at our departure and
     // arrival time, solve Lambert's problem to determine the velocity of the
     // transfer orbit that links the planets at both positions.
-    local solution is lambert(r1, r2, t2 - t1, focalBody:mu, flip_direction).
+    local solution is lambert(r1, r2, t2 - t1, parent:mu, flip_direction).
 
     // "velocityat" already returns orbital velocity relative to the parent
     // body, so no adjustment is needed.
-    local dv1 is solution:v1 - velocityat(fromBody, t1):orbit.
-    local dv2 is solution:v2 - velocityat(toBody, t2):orbit.
+    local dv1 is solution:v1 - velocityat(origin, t1):orbit.
+    local dv2 is solution:v2 - velocityat(destination, t2):orbit.
     return lexicon("dv1", dv1, "dv2", dv2).
 }
 
 // Calculate the delta-v required to eject into a hyperbolic transfer orbit
-// at the correct inclination from the desired altitude "r1".
+// at the correct inclination from the desired radius "r1".
 // Simplifying assumptions:
 // * Vessel is currently in a perfectly circular orbit at radius "r1" and
 //   velocity "v1" at 0 degrees inclination.
@@ -91,22 +90,22 @@ local function transfer_deltav {
 // See the next comment section  below for details on how "v1" and "ve"
 // are calculated.
 local function ejection_deltav {
-    parameter body, altitude, dv1.
+    parameter body, altitude, dv.
 
     local mu is body:mu.
     local r1 is body:radius + altitude.
     local r2 is body:soiradius.
 
     local v1 is sqrt(mu / r1).
-    local v2 is dv1:mag.
+    local v2 is dv:mag.
     local ve is sqrt(v2 ^ 2 + 2 * mu * (r2 - r1) / (r1 * r2)).
 
-    local cos_i is v(dv1:x, 0, dv1:z):mag / v2.
+    local cos_i is v(dv:x, 0, dv:z):mag / v2.
     return sqrt(ve ^ 2 + v1 ^ 2 - 2 * ve * v1 * cos_i).
 }
 
 // Calculate the delta-v required to convert a hyperbolic intercept orbit
-// into a circular orbit around the target planet at the desired altitude.
+// into a circular orbit around the target planet at the desired radius.
 // To simplify calculations no inclination change is made, so that the delta-v
 // required will simply be the difference between the hyperbolic velocity
 // at "r1" and the circular orbital velocity at "r1".
@@ -137,14 +136,14 @@ local function ejection_deltav {
 // Taking the square root of equation 5 then subtracting 'v1" gives the delta-v
 // required to capture into a ciruclar orbit.
 local function insertion_deltav {
-    parameter body, altitude, dv2.
+    parameter body, altitude, dv.
 
     local mu is body:mu.
     local r1 is body:radius + altitude.
     local r2 is body:soiradius.
 
     local v1 is sqrt(mu / r1).
-    local v2 is dv2:mag.
+    local v2 is dv:mag.
     local ve is sqrt(v2 ^ 2 + 2 * mu * (r2 - r1) / (r1 * r2)).
 
     return ve - v1.
