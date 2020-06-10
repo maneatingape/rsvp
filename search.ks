@@ -1,41 +1,34 @@
 @lazyglobal off.
-runoncepath("kos-launch-window-finder/orbit.ks").
 
 global function iterated_hill_climb {
-    parameter parent, origin, destination.
+    parameter total_deltav, departure_time, search_duration, max_time_of_flight, step.
 
-    local from_period is origin:orbit:period.
-    local to_period is destination:orbit:period.
-    local synodic_period is abs(from_period * to_period / (from_period - to_period)).
-
-    local start is 0.
-    local end is max(max(from_period, to_period), synodic_period).
-    local step is min(from_period, to_period).
+    local start is departure_time.
+    local end is start + search_duration.
 
     for offset in range(start, end, step) {
-        print "-------".        
-        print origin:name + " => " + destination:name.
+        print "-------".
         print "Starting Offset: " + secondsToKerbinTime(offset).
-        hill_climb(parent, origin, destination, offset, step * 0.1).
+        hill_climb(offset, step * 0.1, max_time_of_flight, total_deltav).
     }
 }
 
 local function hill_climb {
-    parameter parent, origin, destination, base_offset, stepSize.
+    parameter base_offset, stepSize, max_time_of_flight, total_deltav.
 
     local threshold is 3600.
     local offsetX is stepSize + base_offset.
-    local offsetY is ideal_hohmann_transfer_tof(parent, origin, destination).
+    local offsetY is max_time_of_flight / 2.
 
-    local prograde_deltav is total_deltav(parent, origin, destination, false, offsetX, offsetX + offsetY).
-    local retrograde_deltav is total_deltav(parent, origin, destination, true, offsetX, offsetX + offsetY).
+    local prograde_deltav is total_deltav(false, offsetX, offsetX + offsetY).
+    local retrograde_deltav is total_deltav(true, offsetX, offsetX + offsetY).
     local flip_direction is retrograde_deltav < prograde_deltav.
 
     local count is 0.
     local cost is {
         parameter offsetX, offsetY.
 
-        return total_deltav(parent, origin, destination, flip_direction, 0 + offsetX, 0 + offsetX + offsetY).
+        return total_deltav(flip_direction, offsetX, offsetX + offsetY).
     }.
 
     local current is choose retrograde_deltav if flip_direction else prograde_deltav.
