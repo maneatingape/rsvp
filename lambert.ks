@@ -43,7 +43,7 @@
 global function lambert {
     parameter r1, r2, tof, mu, flip_direction.
 
-    // Calculate "lamdba" and normalized time of flight "t" 
+    // Calculate "lamdba" and normalized time of flight "t"
     local m1 is r1:mag.
     local m2 is r2:mag.
     local c is (r1 - r2):mag.

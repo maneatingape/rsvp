@@ -55,7 +55,7 @@ global function ideal_hohmann_transfer_tof {
 
 // Calculates the delta-v needed to transfer between origin and destination
 // planets at the specified times.
-// 
+//
 // origin [Body] Departure planet that vessel will leave from.
 // destination [Body] Destination planet that vessel will arrive at.
 // flip_direction [Boolean] Change transfer direction between prograde/retrograde
@@ -100,7 +100,7 @@ global function transfer_deltav {
 // Kerbol's north pole. Therefore the desired angle "i" between the
 // flat circular orbit and the inclined ejection orbit is the angle between
 // the original transfer velocity vector and the same vector with the
-// y coordinate zeroed out. 
+// y coordinate zeroed out.
 //
 // Our required delta-v, "v1" and 've" form a triangle with angle "i" between
 // sides 'v1" and "ve'. The length of 3rd side is the magnitude of our required
@@ -128,7 +128,7 @@ global function equatorial_ejection_deltav {
 // To simplify calculations no inclination change is made, so that the delta-v
 // required will simply be the difference between the hyperbolic velocity
 // at "r1" and the circular orbital velocity at "r1".
-// 
+//
 // For a perfectly circular orbit at radius "r1" the orbital velocity "v1" is
 // straightforward to calculate using the vis-viva equation.
 //
@@ -168,9 +168,33 @@ global function circular_insertion_deltav {
     return ve - v1.
 }
 
+// Calculate the delta-v to capture into a highly elliptical orbit with
+// periapsis at "r1" and apoapsis at the edge of SOI. This is identical to the
+// previous function, except for the semi-major radius used when calculating "v1".
+global function elliptical_insertion_deltav {
+    parameter body, altitude, dv.
+
+    local mu is body:mu.
+    local r1 is body:radius + altitude.
+    local r2 is body:soiradius.
+
+    local v1 is sqrt(mu * (2 / r1 - 2 / (r1 + r2))).
+    local v2 is dv:mag.
+    local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
+
+    return ve - v1.
+}
+
+// Vessels have no SOI or gravity so the delta-v required is exactly the
+// transfer orbit delta-v.
+global function vessel_rendezvous_dv {
+    parameter body, altitude, dv.
+    return dv:mag.
+}
+
 // Calculates the delta-v required for a flyby or aerocapture: None!
-// Has the same parameters as "circular_insertion_deltav" so that their
-// respective function delegates can be called interchangeably.
+// Has the same parameters as the other insertion delta-v functions so that
+// their respective function delegates can be called interchangeably.
 global function no_insertion_deltav {
     parameter body, altitude, dv.
     return 0.

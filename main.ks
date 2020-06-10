@@ -5,11 +5,11 @@ runoncepath("kos-launch-window-finder/search.ks").
 global function find_launch_window {
     parameter origin, destination, options is lexicon().
 
-    if not is_body(origin) {
-        return failure("'origin' is not expected type Body").
+    if not (is_body(origin) or is_vessel(origin)) {
+        return failure("'origin' is not expected type Body or Vessel").
     }
-    if not is_body(destination) {
-        return failure("'destination' is not expected type Body").
+    else if not (is_body(destination) or is_vessel(destination)) {
+        return failure("'destination' is not expected type Body or Vessel").
     }
     if not is_lexicon(options) {
         return failure("'options' is not expected type Lexicon").
@@ -48,7 +48,7 @@ global function find_launch_window {
             set search_duration to options:search_duration.
         }
         else {
-            return failure("'search_duration' is not expected type Scalar").            
+            return failure("'search_duration' is not expected type Scalar").
         }
 
         if search_duration <= 0 {
@@ -73,13 +73,16 @@ global function find_launch_window {
     }
 
     // Initial orbit type always "equatorial" for now
-    local ejection_deltav is equatorial_ejection_deltav@.
+    local ejection_deltav is choose equatorial_ejection_deltav@ if is_body(origin) else vessel_rendezvous_deltav@.
 
     // Initial orbit periapsis
     local initial_orbit_pe is 100000.
 
     if options:haskey("initial_orbit_pe") {
-        if is_scalar(options:initial_orbit_pe) {
+        if is_vessel(origin) {
+            return failure("'initial_orbit_pe' is not applicable to Vessel").
+        }    
+        else if is_scalar(options:initial_orbit_pe) {
             set initial_orbit_pe to options:initial_orbit_pe.
         }
         else if options:initial_orbit_pe = "min" {
@@ -92,21 +95,23 @@ global function find_launch_window {
         if initial_orbit_pe < 0 {
             return failure("'initial_orbit_pe' must be greater than or equal to zero").
         }
-    }    
+    }
 
     // Final orbit type
-    local insertion_deltav is circular_insertion_deltav@.
+    local insertion_deltav is choose circular_insertion_deltav@ if is_body(destination) else vessel_rendezvous_deltav@.
 
     if options:haskey("final_orbit_type") {
-        if option:final_orbit_type = "none" {
+        if is_vessel(destination) {
+            return failure("'final_orbit_type' is not applicable to Vessel").
+        }            
+        else if option:final_orbit_type = "none" {
             set insertion_deltav to no_insertion_deltav@.
         }
         else if option:final_orbit_type = "circular" {
             set insertion_deltav to circular_insertion_deltav@.
         }
         else if option:final_orbit_type = "elliptical" {
-            // FIX ME
-            set insertion_deltav to circular_insertion_deltav@.
+            set insertion_deltav to elliptical_insertion_deltav@.
         }
         else {
             return failure("'final_orbit_type' is not one of expected values 'none', 'circular' or 'elliptical'").
@@ -117,7 +122,10 @@ global function find_launch_window {
     local final_orbit_pe is 100000.
 
     if options:haskey("final_orbit_pe") {
-        if is_scalar(options:final_orbit_pe) {
+        if is_vessel(origin) {
+            return failure("'final_orbit_pe' is not applicable to Vessel").
+        }    
+        else if is_scalar(options:final_orbit_pe) {
             set final_orbit_pe to options:final_orbit_pe.
         }
         else if options:final_orbit_pe = "min" {
@@ -134,7 +142,6 @@ global function find_launch_window {
 
     // TODO:
     // Verbose?
-    // Vessel to vessel?
     // Impatience factor?
     // Inclined orbit ejection?
 
@@ -150,7 +157,7 @@ global function find_launch_window {
     }.
 
     local step is min(origin:orbit:period, destination:orbit:period).
-    
+
     print "=======".
     print origin:name + " => " + destination:name.
     return iterated_hill_climb(total_deltav, departure_time, search_duration, max_time_of_flight, step).
@@ -167,6 +174,7 @@ local function is_type {
 }
 
 local is_body is is_type@:bind("body").
+local is_vessel is is_type@:bind("vessel").
 local is_lexicon is is_type@:bind("lexicon").
 local is_scalar is is_type@:bind("scalar").
 local is_timespan is is_type@:bind("timespan").
