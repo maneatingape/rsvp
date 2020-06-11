@@ -1,0 +1,13 @@
+[TODO List]
+
+[General]
+* Readme section per file
+* Quickstart
+* Usage guide
+* Create "examples.ks"
+* Unit tests?
+
+[main.ks]
+* Verbose mode?
+* Impatience factor?
+* Inclined orbit ejection?

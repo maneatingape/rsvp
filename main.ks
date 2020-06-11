@@ -8,7 +8,7 @@ global function find_launch_window {
     if not (is_body(origin) or is_vessel(origin)) {
         return failure("'origin' is not expected type Body or Vessel").
     }
-    else if not (is_body(destination) or is_vessel(destination)) {
+    if not (is_body(destination) or is_vessel(destination)) {
         return failure("'destination' is not expected type Body or Vessel").
     }
     if not is_lexicon(options) {
@@ -140,27 +140,34 @@ global function find_launch_window {
         }
     }
 
-    // TODO:
-    // Verbose?
-    // Impatience factor?
-    // Inclined orbit ejection?
+    // Verbose mode prints details information to the console
+    local verbose is false.
 
-    // Put it all together
+    if options:haskey("verbose") {
+        if is_boolean(options:verbose) {
+            set verbose to options:verbose.
+        }
+        else {
+            return failure("'verbose' is not expected type Boolean").
+        }
+    }
+
+    // Compose settings into a single cost function
     local total_deltav is {
-        parameter flip_direction, t1, t2.
+        parameter flip_direction, departure_time, time_of_flight.
 
-        local solution is transfer_deltav(origin, destination, flip_direction, t1, t2).
+        local solution is transfer_deltav(origin, destination, flip_direction, departure_time, departure_time + time_of_flight).
         local ejection is ejection_deltav(origin, initial_orbit_pe, solution:dv1).
         local insertion is insertion_deltav(destination, final_orbit_pe, solution:dv2).
 
         return ejection + insertion.
     }.
 
-    local step is min(origin:orbit:period, destination:orbit:period).
+    local search_interval is min(origin:orbit:period, destination:orbit:period).
 
     print "=======".
     print origin:name + " => " + destination:name.
-    return iterated_hill_climb(total_deltav, departure_time, search_duration, max_time_of_flight, step).
+    return iterated_hill_climb(departure_time, departure_time + search_duration, search_interval, max_time_of_flight, total_deltav).
 }
 
 local function failure {
@@ -178,3 +185,4 @@ local is_vessel is is_type@:bind("vessel").
 local is_lexicon is is_type@:bind("lexicon").
 local is_scalar is is_type@:bind("scalar").
 local is_timespan is is_type@:bind("timespan").
+local is_boolean is is_type@:bind("boolean").

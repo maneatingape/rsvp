@@ -5,7 +5,7 @@ runoncepath("kos-launch-window-finder/main.ks").
 // transfer is computationally intensive.
 set config:ipu to 2000.
 
-find_launch_window(kerbin, duna).
-find_launch_window(kerbin, moho).
-find_launch_window(kerbin, eeloo).
-find_launch_window(laythe, tylo).
+print find_launch_window(kerbin, duna).
+//print find_launch_window(kerbin, moho).
+//print find_launch_window(kerbin, eeloo).
+//print find_launch_window(laythe, tylo).
