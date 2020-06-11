@@ -22,26 +22,26 @@ global function find_launch_window {
     }
 
     // Departure time
-    local departure_time is time():seconds.
+    local earliest_departure is time():seconds.
 
-    if options:haskey("departure_time") {
-        if is_scalar(options:departure_time) {
-            set departure_time to options:departure_time.
+    if options:haskey("earliest_departure") {
+        if is_scalar(options:earliest_departure) {
+            set earliest_departure to options:earliest_departure.
         }
-        else if is_timespan(options:departure_time) {
-            set departure_time to options:departure_time:seconds.
+        else if is_timespan(options:earliest_departure) {
+            set earliest_departure to options:earliest_departure:seconds.
         }
         else {
-            return failure("'departure_time' is not expected type Scalar or TimeSpan").
+            return failure("'earliest_departure' is not expected type Scalar or TimeSpan").
         }
 
-        if departure_time < 0 {
-            return failure("'departure_time' must be greater than or equal to zero").
+        if earliest_departure < 0 {
+            return failure("'earliest_departure' must be greater than or equal to zero").
         }
     }
 
     // Search duration
-    local search_duration is max(synodic_period(origin, destination), max(origin:orbit:period, destination:orbit:period)).
+    local search_duration is max(max_period(origin, destination), synodic_period(origin, destination)).
 
     if options:haskey("search_duration") {
         if is_scalar(options:search_duration) {
@@ -140,7 +140,7 @@ global function find_launch_window {
         }
     }
 
-    // Verbose mode prints details information to the console
+    // Verbose mode prints detailed information to the console
     local verbose is false.
 
     if options:haskey("verbose") {
@@ -153,6 +153,9 @@ global function find_launch_window {
     }
 
     // Compose settings into a single cost function
+    local latest_departure is earliest_departure + search_duration.
+    local search_interval is min_period(origin, destination).
+
     local total_deltav is {
         parameter flip_direction, departure_time, time_of_flight.
 
@@ -163,11 +166,15 @@ global function find_launch_window {
         return ejection + insertion.
     }.
 
-    local search_interval is min(origin:orbit:period, destination:orbit:period).
+    if verbose {
+        print "Details".
+        print "  Origin: " + origin:name.
+        print "  Destination: " + destination:name.
+        print "  Earliest Departure: " + seconds_to_kerbin_time(earliest_departure).
+        print "  Latest Departure: " + seconds_to_kerbin_time(latest_departure).        
+    }
 
-    print "=======".
-    print origin:name + " => " + destination:name.
-    return iterated_hill_climb(departure_time, departure_time + search_duration, search_interval, max_time_of_flight, total_deltav).
+    return iterated_hill_climb(earliest_departure, latest_departure, search_interval, max_time_of_flight, total_deltav, verbose).
 }
 
 local function failure {

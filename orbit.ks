@@ -1,6 +1,28 @@
 @lazyglobal off.
 runoncepath("kos-launch-window-finder/lambert.ks").
 
+// Returns the minimum period of either the origin or destination.
+//
+// Parameters:
+// origin [Body] Departure planet that vessel will leave from.
+// destination [Body] Destination planet that vessel will arrive at.
+global function min_period {
+    parameter origin, destination.
+
+    return min(origin:orbit:period, destination:orbit:period).
+}
+
+// Returns the maximum period of either the origin or destination.
+//
+// Parameters:
+// origin [Body] Departure planet that vessel will leave from.
+// destination [Body] Destination planet that vessel will arrive at.
+global function max_period {
+    parameter origin, destination.
+
+    return max(origin:orbit:period, destination:orbit:period).
+}
+
 // Calculate the syndodic period. This is the time between conjunctions when
 // both planets have the same ecliptic longtitude or alternatively when both
 // planets return to the same phase angle. Inclination is not considered so the
@@ -17,6 +39,7 @@ runoncepath("kos-launch-window-finder/lambert.ks").
 // similar orbital periods would have a long synodic period that needs to be
 // searched to reliably return to lowest cost delta-v transfer.
 //
+// Parameters:
 // origin [Body] Departure planet that vessel will leave from.
 // destination [Body] Destination planet that vessel will arrive at.
 global function synodic_period {
@@ -56,6 +79,7 @@ global function ideal_hohmann_transfer_tof {
 // Calculates the delta-v needed to transfer between origin and destination
 // planets at the specified times.
 //
+// Parameters:
 // origin [Body] Departure planet that vessel will leave from.
 // destination [Body] Destination planet that vessel will arrive at.
 // flip_direction [Boolean] Change transfer direction between prograde/retrograde

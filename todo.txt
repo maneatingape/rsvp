@@ -8,6 +8,5 @@
 * Unit tests?
 
 [main.ks]
-* Verbose mode?
 * Impatience factor?
 * Inclined orbit ejection?
