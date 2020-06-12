@@ -154,7 +154,7 @@ global function find_launch_window {
 
     // Compose settings into a single cost function
     local latest_departure is earliest_departure + search_duration.
-    local search_interval is min_period(origin, destination).
+    local search_interval is 0.5 * min_period(origin, destination).
 
     local total_deltav is {
         parameter flip_direction, departure_time, time_of_flight.

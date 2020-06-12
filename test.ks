@@ -11,3 +11,4 @@ find_launch_window(kerbin, duna, options).
 //find_launch_window(kerbin, moho, options).
 //find_launch_window(kerbin, eeloo, options).
 //find_launch_window(laythe, tylo, options).
+//find_launch_window(eeloo, moho, options).

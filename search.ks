@@ -3,10 +3,13 @@
 global function iterated_hill_climb {
     parameter earliest_departure, latest_departure, search_interval, max_time_of_flight, total_deltav, verbose.
 
-    local y is max_time_of_flight * 0.5.
     local clamp_y is clamp@:bind(0, max_time_of_flight).
+    local y is max_time_of_flight * 0.5.
+
     local step_size is search_interval * 0.1.
     local step_threshold is 3600.
+
+    local invocations is 0.
     local result is lexicon("deltav", "max").
 
     for x in range(earliest_departure, latest_departure, search_interval) {
@@ -15,22 +18,23 @@ global function iterated_hill_climb {
         local clamp_x is clamp@:bind(min_x, max_x).
 
         local candidate is hill_climb(clamp_x, clamp_y, x, y, step_size, step_threshold, total_deltav).
+        set invocations to invocations + candidate:invocations.
         set result to choose candidate if candidate:deltav < result:deltav else result.
 
         if verbose {
             print "Search offset: " + seconds_to_kerbin_time(x).
-            print "  Iterations: " + result:iterations.
-            print "  Departure: " + seconds_to_kerbin_time(result:departure).
-            print "  Arrival: " + seconds_to_kerbin_time(result:arrival).
-            print "  Delta-v: " + round(result:deltav).
+            print "  Departure: " + seconds_to_kerbin_time(candidate:departure).
+            print "  Arrival: " + seconds_to_kerbin_time(candidate:arrival).
+            print "  Delta-v: " + round(candidate:deltav).
         }
     }
 
     if verbose {
+        print "Invocations: " + invocations.
         print "Best Result".
         print "  Departure: " + seconds_to_kerbin_time(result:departure).
         print "  Arrival: " + seconds_to_kerbin_time(result:arrival).
-        print "  Delta-v: " + round(result:deltav).        
+        print "  Delta-v: " + round(result:deltav).
     }
 
     return result.
@@ -43,14 +47,20 @@ local function hill_climb {
     local retrograde_deltav is total_deltav(true, x, y).    
     local flip_direction is retrograde_deltav < prograde_deltav.
     local deltav is choose retrograde_deltav if flip_direction else prograde_deltav.
+    local invocations is 0.
 
     local cost is {
         parameter next_x, next_y.
-        local same_point is next_x = x and next_y = y.
-        return choose deltav if same_point else total_deltav(flip_direction, next_x, next_y).
+        
+        if next_x = x and next_y = y {
+            return deltav.
+        }
+        else {
+            set invocations to invocations + 1.
+            return total_deltav(flip_direction, next_x, next_y).
+        }
     }.
 
-    local iterations is 0.
     local dx is 0.
     local dy is 0.
     local next_x is 0.
@@ -103,11 +113,9 @@ local function hill_climb {
             set deltav to cost_y.
             set y to next_y.
         }
-
-        set iterations to iterations + 1.        
     }
 
-    return lexicon("success", true, "departure", x, "arrival", x + y, "deltav", deltav, "iterations", iterations).
+    return lexicon("success", true, "departure", x, "arrival", x + y, "deltav", deltav, "invocations", invocations).
 }
 
 local function clamp {
@@ -116,7 +124,6 @@ local function clamp {
     return min(max(n, min_n), max_n).
 }
 
-// TODO
 global function seconds_to_kerbin_time {
     parameter seconds.
 

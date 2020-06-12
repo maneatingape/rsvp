@@ -10,3 +10,7 @@
 [main.ks]
 * Impatience factor?
 * Inclined orbit ejection?
+
+[search.ks]
+* Try coordinate descent
+* Extract formatted time
