@@ -53,58 +53,59 @@ local function coordinate_descent {
     local direction is "none".
 
     local function cost {
-        parameter next_x, next_y.
-        
-        if next_x = x and next_y = y {
-            return deltav.
-        }
-        else {
+        parameter dx, dy, next_direction is direction.
+
+        local next_x is clamp_x(x + dx).
+        local next_y is clamp_y(y + dy).
+        local next_deltav is deltav.
+
+        if next_x <> x or next_y <> y {
             set invocations to invocations + 1.
-            return total_deltav(flip_direction, next_x, next_y).
+            set next_deltav to total_deltav(flip_direction, next_x, next_y).
         }
+
+        if next_deltav < deltav {
+            set deltav to next_deltav.
+            set direction to next_direction.
+        }
+        else if direction = next_direction {
+            set direction to "none".
+        }     
     }
 
     until step_size < step_threshold {
-        local north is deltav.
-        local south is deltav.
-        local east is deltav.
-        local west is deltav.
+        if direction = "north" {
+            cost(0, step_size).
+        }
+        else if direction = "south" {
+            cost(0, -step_size).
+        }
+        else if direction = "east" {
+            cost(step_size, 0).
+        }
+        else if direction = "west" {
+            cost(-step_size, 0).
+        }
+        else {
+            cost(0, step_size, "north").
+            cost(0, -step_size, "south").
+            cost(step_size, 0, "east").
+            cost(-step_size, 0, "west").            
+        }
 
-        if direction = "north" or direction = "none" {
-            set north to cost(x, clamp_y(y + step_size)).
-        }
-        if direction = "south" or direction = "none" {
-            set south to cost(x, clamp_y(y - step_size)).
-        }
-        if direction = "east" or direction = "none" {
-            set east to cost(clamp_x(x + step_size), y).
-        }
-        if direction = "west" or direction = "none" {
-            set west to cost(clamp_x(x - step_size), y).
-        }
-
-        if north < deltav and north < south and north < east and north < west {
-            set direction to "north".
-            set deltav to north.
+        if direction = "north" {
             set y to clamp_y(y + step_size).
         }
-        else if south < deltav and south < east and south < west {
-            set direction to "south".
-            set deltav to south.
+        else if direction = "south" {
             set y to clamp_y(y - step_size).
         }
-        else if east < deltav and east < west {
-            set direction to "east".
-            set deltav to east.
+        else if direction = "east" {
             set x to clamp_x(x + step_size).
         }
-        else if west < deltav {
-            set direction to "west".
-            set deltav to west.
+        else if direction = "west" {
             set x to clamp_x(x - step_size).
         }
         else {
-            set direction to "none".
             set step_size to step_size * step_factor.
         }
     }
