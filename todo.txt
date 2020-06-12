@@ -8,6 +8,7 @@
 * Unit tests?
 
 [main.ks]
+* Function per option & multiple error handling?
 * Impatience factor?
 * Inclined orbit ejection?
 
