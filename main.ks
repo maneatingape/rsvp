@@ -76,24 +76,24 @@ global function find_launch_window {
     local ejection_deltav is choose equatorial_ejection_deltav@ if is_body(origin) else vessel_rendezvous_deltav@.
 
     // Initial orbit periapsis
-    local initial_orbit_pe is 100000.
+    local initial_orbit_altitude is 100000.
 
-    if options:haskey("initial_orbit_pe") {
+    if options:haskey("initial_orbit_altitude") {
         if is_vessel(origin) {
-            return failure("'initial_orbit_pe' is not applicable to Vessel").
+            return failure("'initial_orbit_altitude' is not applicable to Vessel").
         }    
-        else if is_scalar(options:initial_orbit_pe) {
-            set initial_orbit_pe to options:initial_orbit_pe.
+        else if is_scalar(options:initial_orbit_altitude) {
+            set initial_orbit_altitude to options:initial_orbit_altitude.
         }
-        else if options:initial_orbit_pe = "min" {
-            set initial_orbit_pe to choose origin:atm:height + 10000 if origin:atm:exists else 10000.
+        else if options:initial_orbit_altitude = "min" {
+            set initial_orbit_altitude to choose origin:atm:height + 10000 if origin:atm:exists else 10000.
         }
         else {
-            return failure("'initial_orbit_pe' is not expected type Scalar or special value 'min'").
+            return failure("'initial_orbit_altitude' is not expected type Scalar or special value 'min'").
         }
 
-        if initial_orbit_pe < 0 {
-            return failure("'initial_orbit_pe' must be greater than or equal to zero").
+        if initial_orbit_altitude < 0 {
+            return failure("'initial_orbit_altitude' must be greater than or equal to zero").
         }
     }
 
@@ -160,7 +160,7 @@ global function find_launch_window {
         parameter flip_direction, departure_time, time_of_flight.
 
         local solution is transfer_deltav(origin, destination, flip_direction, departure_time, departure_time + time_of_flight).
-        local ejection is ejection_deltav(origin, initial_orbit_pe, solution:dv1).
+        local ejection is ejection_deltav(origin, initial_orbit_altitude, solution:dv1).
         local insertion is insertion_deltav(destination, final_orbit_pe, solution:dv2).
 
         return ejection + insertion.
