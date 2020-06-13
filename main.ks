@@ -174,7 +174,10 @@ global function find_launch_window {
         print "  Latest Departure: " + seconds_to_kerbin_time(latest_departure).        
     }
 
-    return iterated_hill_climb(earliest_departure, latest_departure, search_interval, max_time_of_flight, total_deltav, verbose).
+    local result is iterated_local_search(earliest_departure, latest_departure, search_interval, max_time_of_flight, total_deltav, verbose).
+    local details is transfer_deltav(origin, destination, result:flip_direction, result:departure, result:arrival).
+
+    return details.
 }
 
 local function failure {

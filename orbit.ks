@@ -25,9 +25,9 @@ global function max_period {
 
 // Calculate the syndodic period. This is the time between conjunctions when
 // both planets have the same ecliptic longtitude or alternatively when both
-// planets return to the same phase angle. Inclination is not considered so the
-// planets will not necessarily be in exactly the same three dimensional
-// position relative to each other.
+// planets return to the same phase angle. Eccentricity and inclination are
+// not considered so the planets will not necessarily be in exactly the same
+// three dimensional position relative to each other.
 //
 // The closer two planets' orbital period the longer the synodic period,
 // approaching infinity as the orbital periods converge. Intuitively this makes

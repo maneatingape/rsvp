@@ -1,6 +1,6 @@
 @lazyglobal off.
 
-global function iterated_hill_climb {
+global function iterated_local_search {
     parameter earliest_departure, latest_departure, search_interval, max_time_of_flight, total_deltav, verbose.
 
     local clamp_y is clamp@:bind(0, max_time_of_flight).
@@ -110,7 +110,7 @@ local function coordinate_descent {
         }
     }
 
-    return lexicon("success", true, "departure", x, "arrival", x + y, "deltav", deltav, "invocations", invocations).
+    return lexicon("flip_direction", flip_direction, "departure", x, "arrival", x + y, "deltav", deltav, "invocations", invocations).
 }
 
 local function clamp {
