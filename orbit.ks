@@ -211,7 +211,7 @@ global function elliptical_insertion_deltav {
 
 // Vessels have no SOI or gravity so the delta-v required is exactly the
 // transfer orbit delta-v.
-global function vessel_rendezvous_dv {
+global function vessel_rendezvous_deltav {
     parameter body, altitude, dv.
     return dv:mag.
 }

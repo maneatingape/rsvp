@@ -1,17 +1,15 @@
 [TODO List]
 
 [General]
+* Finish usage guide
 * Readme section per file
-* Quickstart
-* Usage guide
 * Create "examples.ks"
 * Unit tests?
 
 [main.ks]
 * Function per option & multiple error handling?
 * Impatience factor?
-* Inclined orbit ejection?
+* Reject unknown options
 
 [search.ks]
-* Try coordinate descent
-* Extract formatted time
+* Extract formatted time and clamp?

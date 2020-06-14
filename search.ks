@@ -1,13 +1,13 @@
 @lazyglobal off.
 
 global function iterated_local_search {
-    parameter earliest_departure, latest_departure, search_interval, max_time_of_flight, total_deltav, verbose.
+    parameter earliest_departure, latest_departure, search_interval, threshold, max_time_of_flight, total_deltav, verbose.
 
     local clamp_y is clamp@:bind(0, max_time_of_flight).
     local y is max_time_of_flight * 0.5.
 
     local step_size is search_interval * 0.1.
-    local step_threshold is 3600.
+    local step_threshold is threshold.
     local step_factor is 0.5.
 
     local invocations is 0.
