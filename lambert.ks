@@ -124,9 +124,9 @@ local function time_of_flight {
 
     local b is sqrt(abs(a)).
     local c is lambda * a + x * y.
-    local d is choose constant:degtorad * arccos(c) if a > 0 else ln(b * (y - lambda * x) + c).
+    local psi is choose constant:degtorad * arccos(c) if a > 0 else ln(b * (y - lambda * x) + c).
 
-    return (d / b - x + lambda * y) / a.
+    return (psi / b - x + lambda * y) / a.
 }
 
 // Helper function to run iterative root finding algorithms.

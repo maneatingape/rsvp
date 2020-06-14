@@ -13,3 +13,6 @@
 
 [search.ks]
 * Extract formatted time and clamp?
+
+[lambert.ks]
+* Try to remove flip_direction using ih:y < 0
