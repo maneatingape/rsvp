@@ -114,11 +114,11 @@ The original code is extremley robust and flexible. For the default KSP universe
 
 ### Coordinate Descent [(search.ks)](https://github.com/maneatingape/kos-launch-window-finder/blob/master/search.ks)
 
-[TODO]
-https://en.wikipedia.org/wiki/Coordinate_descent
-Generating each point would be extremely slow.
-Converges in linear time.
-Searches Porkchop plot.
+Graphing the delta-v values returned by the Lambert solver, with departure time along the x-axis and arrival time (or time of flight) along the y-axis, gives the famous [porkchop plot.](https://en.wikipedia.org/wiki/Porkchop_plot) This shows the lowest delta-v transfer times.
+
+However the brute force approach of generating every point of this graph would take too long on kOS. Instead an [iterated local search](https://en.wikipedia.org/wiki/Iterated_local_search) approach gives a decent probability of finding the global minumum in a shorter time.
+
+The [coordinate descent](https://en.wikipedia.org/wiki/Coordinate_descent) algorithm used is a variant of the classic [hill climbing](https://en.wikipedia.org/wiki/Hill_climbing) algorithm. Given a starting point, it always attempts to go "downhill" to a region of lower delta-v, stopping once it cannot go any further. 
 
 ### Orbital mechanics [(orbit.ks)](https://github.com/maneatingape/kos-launch-window-finder/blob/master/orbit.ks)
 

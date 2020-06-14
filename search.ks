@@ -1,5 +1,16 @@
 @lazyglobal off.
 
+// Local search algorithms such as hill climbing can easily get stuck in local
+// minima.
+// 
+// A simple way to work around this drawback is to start several searches at
+// different coordinates. There is then a good chance that at least one of the
+// searches will find the global minimum.
+//
+// Our solution space is the classic porkchop plot, where the x coordinate is
+// departure time and the y coordinate is time of flight. The Lamber solver and
+// orbital parameters provides the "cost" function of the delta-v requirement
+// at any (x,y) point.
 global function iterated_local_search {
     parameter earliest_departure, latest_departure, search_interval, threshold, max_time_of_flight, total_deltav, verbose.
 
@@ -41,6 +52,17 @@ global function iterated_local_search {
     return result.
 }
 
+// Coordinate descent is a variant of the hill climbing algorithm, where only
+// one dimension (x or y) is minimized at a time. This algorithm combines this
+// with a simple binary search approach. This converges reasonable quickly wihout
+// too many costly Lambert solver invocations.
+//
+// The approach is:
+// (1) Choose an initial starting position
+// (2) Determine the lowest cost at a point "step_size" distance away on either
+//     the x or y axes.
+// (3) Continue in this direction until the cost increases
+// (4) Half the step size, terminating if below a threshold, then go to step (2)
 local function coordinate_descent {
     parameter clamp_x, clamp_y, x, y, step_size, step_threshold, step_factor, total_deltav.
 
