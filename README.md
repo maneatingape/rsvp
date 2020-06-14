@@ -7,7 +7,7 @@ This code enables players to find low delta-v transfer orbits between two planet
 Features:
 * Works either standalone or integrated with your scripts.
 * Adapts to planetary packs such as [Outer Planets Mods](https://forum.kerbalspaceprogram.com/index.php?/topic/184789-131-18x-outer-planets-mod-v226-4th-feb-2020/) and [JNSQ](https://github.com/Galileo88/JNSQ).
-* Supports vessel to vessel rendezvous.
+* Supports vessel to vessel rendezvous planning.
 
 ## Quickstart
 
@@ -76,7 +76,7 @@ The insertion orbit can be one of three types:
 * **Circular**
     Propulsively brake into a circular orbit at the altitude specified by the next option. Does not change inclination. If the origin and destination bodies are inclined then this orbit will be inclined too.
 * **Elliptical**
-    Capture into a highly elliptical orbit with apoapsis *just* inside the destination's SOI and periapsis at the desired altitude specified by the next option. This can useful if, for example the vessel will send a seperate lander down to the surface or its intended to visit moons of the destination. 
+    Capture into a highly elliptical orbit with apoapsis *just* inside the destination's SOI and periapsis at the desired altitude specified by the next option. This can useful if, for example the vessel will send a seperate lander down to the surface or it is intended to visit moons of the destination.
 
 | Key | Default value | Accepted values |
 |-----|---------------|-----------------|
@@ -116,7 +116,7 @@ The original code is extremley robust and flexible. For the default KSP universe
 
 Graphing the delta-v values returned by the Lambert solver, with departure time along the x-axis and arrival time (or time of flight) along the y-axis, gives the famous [porkchop plot.](https://en.wikipedia.org/wiki/Porkchop_plot) This shows the lowest delta-v transfer times.
 
-However the brute force approach of generating every point of this graph would take too long on kOS. Instead an [iterated local search](https://en.wikipedia.org/wiki/Iterated_local_search) approach gives a decent probability of finding the global minumum in a shorter time.
+However the brute force approach of generating every point of this graph would take too long on kOS. Instead an [iterated local search](https://en.wikipedia.org/wiki/Iterated_local_search) approach gives a decent probability of finding the global minimum in a shorter time.
 
 The [coordinate descent](https://en.wikipedia.org/wiki/Coordinate_descent) algorithm used is a variant of the classic [hill climbing](https://en.wikipedia.org/wiki/Hill_climbing) algorithm. Given a starting point, it always attempts to go "downhill" to a region of lower delta-v, stopping once it cannot go any further. 
 

@@ -8,7 +8,7 @@
 // searches will find the global minimum.
 //
 // Our solution space is the classic porkchop plot, where the x coordinate is
-// departure time and the y coordinate is time of flight. The Lamber solver and
+// departure time and the y coordinate is time of flight. The Lambert solver and
 // orbital parameters provides the "cost" function of the delta-v requirement
 // at any (x,y) point.
 global function iterated_local_search {
@@ -53,7 +53,7 @@ global function iterated_local_search {
 }
 
 // Coordinate descent is a variant of the hill climbing algorithm, where only
-// one dimension (x or y) is minimized at a time. This algorithm combines this
+// one dimension (x or y) is minimized at a time. This algorithm implements this
 // with a simple binary search approach. This converges reasonable quickly wihout
 // too many costly Lambert solver invocations.
 //
