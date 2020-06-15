@@ -1,6 +1,6 @@
 @lazyglobal off.
-runoncepath("kos-launch-window-finder/orbit.ks").
-runoncepath("kos-launch-window-finder/search.ks").
+runoncepath("0:rsvp/orbit.ks").
+runoncepath("0:rsvp/search.ks").
 
 global function find_launch_window {
     parameter origin, destination, options is lexicon().

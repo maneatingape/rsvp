@@ -1,5 +1,5 @@
 @lazyglobal off.
-runoncepath("kos-launch-window-finder/main.ks").
+runoncepath("0:rsvp/main.ks").
 
 // Default value is 250, increase speed 8x as finding the lowest delta-v
 // transfer is computationally intensive.

@@ -1,5 +1,5 @@
 @lazyglobal off.
-runoncepath("kos-launch-window-finder/lambert.ks").
+runoncepath("0:rsvp/lambert.ks").
 
 // Returns the minimum period of either the origin or destination.
 //
