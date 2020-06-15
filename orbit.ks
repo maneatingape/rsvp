@@ -1,81 +1,6 @@
 @lazyglobal off.
 runoncepath("0:/rsvp/lambert.ks").
 
-// Returns the minimum period of either the origin or destination.
-//
-// Parameters:
-// origin [Body] Departure planet that vessel will leave from.
-// destination [Body] Destination planet that vessel will arrive at.
-global function min_period {
-    parameter origin, destination.
-
-    return min(origin:orbit:period, destination:orbit:period).
-}
-
-// Returns the maximum period of either the origin or destination.
-//
-// Parameters:
-// origin [Body] Departure planet that vessel will leave from.
-// destination [Body] Destination planet that vessel will arrive at.
-global function max_period {
-    parameter origin, destination.
-
-    return max(origin:orbit:period, destination:orbit:period).
-}
-
-// Calculate the syndodic period. This is the time between conjunctions when
-// both planets have the same ecliptic longtitude or alternatively when both
-// planets return to the same phase angle. Eccentricity and inclination are
-// not considered so the planets will not necessarily be in exactly the same
-// three dimensional position relative to each other.
-//
-// The closer two planets' orbital period the longer the synodic period,
-// approaching infinity as the orbital periods converge. Intuitively this makes
-// sense. If two planets' orbits are exactly the same then they are always at
-// the same phase angle.
-//
-// This value is included in the heuristic when determining the search duration
-// to prevent it from being too short. For example two planets with short but
-// similar orbital periods would have a long synodic period that needs to be
-// searched to reliably return to lowest cost delta-v transfer.
-//
-// Parameters:
-// origin [Body] Departure planet that vessel will leave from.
-// destination [Body] Destination planet that vessel will arrive at.
-global function synodic_period {
-    parameter origin, destination.
-
-    local p1 is origin:orbit:period.
-    local p2 is destination:orbit:period.
-
-    return abs(p1 * p2 / (p1 - p2)).
-}
-
-// Calculate the time of flight for an idealized Hohmann transfer orbit between
-// two planets. This provides an approximate initial guess when searching the
-// solution space provided by the Lambert solver.
-//
-// Simplifying assumptions:
-// * Both planet's orbits are circular (eccentricity is ignored).
-// * Transfer angle is exactly 180 degrees.
-//
-// This means that the idealised transfer orbit is an elliptical orbit with a
-// semi-major axis equal to the average of both planet's semi-major axes.
-// Time of flight can then be calculated analytically using Kepler's 3rd law
-// as half of the total period.
-//
-// Parameters:
-// origin [Body] Departure planet that vessel will leave from.
-// destination [Body] Destination planet that vessel will arrive at.
-global function ideal_hohmann_transfer_tof {
-    parameter origin, destination.
-
-    local a is (origin:orbit:semimajoraxis + destination:orbit:semimajoraxis) / 2.
-    local mu is origin:body:mu.
-
-    return constant:pi * sqrt(a ^ 3 / mu).
-}
-
 // Calculates the delta-v needed to transfer between origin and destination
 // planets at the specified times.
 //
@@ -117,8 +42,8 @@ global function transfer_deltav {
 //   and velocity "v1" at 0 degrees inclination.
 // * The distance to the SOI edge from the center of the planet is small enough
 //   (relative to the interplanetary transfer distance) that we can assume the
-//   velocity at SOI edge is a close enough approximation to the calculated
-//   Lambert transfer velocity.
+//   position at SOI edge is a close enough approximation to the position
+//   supplied to the Lambert solver.
 //
 // In KSP's coordinate system, the positive y axis sticks straight up from
 // Kerbol's north pole. Therefore the desired angle "i" between the
@@ -127,7 +52,7 @@ global function transfer_deltav {
 // y coordinate zeroed out.
 //
 // Our required delta-v, "v1" and 've" form a triangle with angle "i" between
-// sides 'v1" and "ve'. The length of 3rd side is the magnitude of our required
+// sides 'v1" and "ve'. The length of the 3rd side is the magnitude of our required
 // delta-v and can be determined using the cosine rule. We calculate the cosine
 // directly from the magnitudes of "v2" and the adjusted v2 with zero y component.
 //
@@ -209,17 +134,73 @@ global function elliptical_insertion_deltav {
     return ve - v1.
 }
 
-// Vessels have no SOI or gravity so the delta-v required is exactly the
-// transfer orbit delta-v.
+// Vessels have no SOI or gravity so the delta-v required is exactly the transfer orbit delta-v.
 global function vessel_rendezvous_deltav {
     parameter body, altitude, dv.
     return dv:mag.
 }
 
-// Calculates the delta-v required for a flyby or aerocapture: None!
-// Has the same parameters as the other insertion delta-v functions so that
-// their respective function delegates can be called interchangeably.
+// Calculates the delta-v required for a flyby, aerocapture or extreme lithobrake...
 global function no_insertion_deltav {
     parameter body, altitude, dv.
     return 0.
+}
+
+// Calculate the time of flight for an idealized Hohmann transfer orbit between
+// two planets. This provides an approximate initial guess when searching the
+// solution space provided by the Lambert solver.
+//
+// Simplifying assumptions:
+// * Both planet's orbits are circular (eccentricity is ignored).
+// * Transfer angle is exactly 180 degrees.
+//
+// This means that the idealized transfer orbit is an elliptical orbit with a
+// semi-major axis equal to the average of both planet's semi-major axes.
+// Time of flight can then be calculated analytically using Kepler's 3rd law
+// as half of the total period.
+global function ideal_hohmann_transfer_tof {
+    parameter origin, destination.
+
+    local a is (origin:orbit:semimajoraxis + destination:orbit:semimajoraxis) / 2.
+    local mu is origin:body:mu.
+
+    return constant:pi * sqrt(a ^ 3 / mu).
+}
+
+// Calculate the syndodic period. This is the time between conjunctions when
+// both planets have the same ecliptic longtitude or alternatively when both
+// planets return to the same phase angle. Eccentricity and inclination are
+// not considered so the planets will not necessarily be in exactly the same
+// three dimensional position relative to each other.
+//
+// The closer two planets' orbital period the longer the synodic period,
+// approaching infinity as the orbital periods converge. Intuitively this makes
+// sense. If two planets' orbits are exactly the same then they are always at
+// the same phase angle.
+//
+// This value is included in the heuristic when determining the search duration
+// to prevent it from being too short. For example two planets with short but
+// similar orbital periods would have a long synodic period that needs to be
+// searched to reliably return to lowest cost delta-v transfer.
+global function synodic_period {
+    parameter origin, destination.
+
+    local p1 is origin:orbit:period.
+    local p2 is destination:orbit:period.
+
+    return abs(p1 * p2 / (p1 - p2)).
+}
+
+// Returns the minimum period of either the origin or destination.
+global function min_period {
+    parameter origin, destination.
+
+    return min(origin:orbit:period, destination:orbit:period).
+}
+
+// Returns the maximum period of either the origin or destination.
+global function max_period {
+    parameter origin, destination.
+
+    return max(origin:orbit:period, destination:orbit:period).
 }

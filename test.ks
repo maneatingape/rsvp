@@ -1,8 +1,8 @@
 @lazyglobal off.
 runoncepath("0:/rsvp/main.ks").
 
-// Default value is 250, increase speed 8x as finding the lowest delta-v
-// transfer is computationally intensive.
+// Default value is 250. Overclocking CPU speed to maximum is recommended
+// as finding transfers is computationally intensive.
 set config:ipu to 2000.
 
 local options is lexicon("verbose", true).
@@ -10,7 +10,7 @@ local options is lexicon("verbose", true).
 // Planets outward journey
 //find_launch_window(kerbin, moho, options).
 //find_launch_window(kerbin, eve, options).
-//find_launch_window(kerbin, duna, options).
+find_launch_window(kerbin, duna, options).
 //find_launch_window(kerbin, jool, options).
 //find_launch_window(kerbin, eeloo, options).
 
@@ -20,7 +20,7 @@ local options is lexicon("verbose", true).
 // Return journey
 //find_launch_window(eeloo, moho, options).
 
-vessel_rendezvous().
+//vessel_rendezvous().
 
 local function vessel_rendezvous {
 	local origin is vessel("Origin").

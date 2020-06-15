@@ -1,4 +1,4 @@
-# Description
+# RSVP
 
 *RSVP* is a [kOS](https://ksp-kos.github.io/KOS/) library that finds orbital [launch windows](https://en.wikipedia.org/wiki/Launch_window) in the game [Kerbal Space Program](https://www.kerbalspaceprogram.com/). The initials stand for "Rendezvous s’il vous plaît", a playful twist on the normal meaning on the acronym.
 
@@ -13,7 +13,8 @@ This library enables players to make automated low delta-v transfers between two
 ## Quickstart
 
 1. Go to the "Releases" tab then download the latest version as a zip or tar file.
-2. Unpack this file into the `<KSP install location>/Ships/Script` location, creating a directory `rsvp`. This adds the scripts to the kOS archive volume, making them available to all vessels.
+2. Unpack into `<KSP install location>/Ships/Script` directory. This step adds the library to the kOS archive volume, making it available to all vessels.
+3. Rename the newly created directory to `rsvp`.
 3. Call the entry point from your own script:
     ```
     runoncepath("0:/rsvp/main.ks").
@@ -44,7 +45,7 @@ When to start searching for transfer windows. Time can be in the vessel's past, 
 
 ### Search Duration
 
-Only search for transfer windows within the specified duration from earliest departure. Restricting the search duration can come in handy when time is of the essence. Increasing the duration may reveal a lower cost delta-v transfer for patient players.
+Only search for transfer windows within the specified duration from earliest departure. Restricting the search duration can come in handy when time is of the essence. Increasing the duration may reveal a lower cost delta-v transfer to patient players.
 
 | Key | Default value | Accepted values |
 |:----|:--------------|:----------------|
@@ -73,11 +74,11 @@ The initial orbit should be as close as possible to a circular orbit with 0° in
 
 The insertion orbit can be one of three types:
 * **None**
-    Use when an aerocapture, flyby or extreme lithobraking is intended at the destination. When calculating the total delta-v the insertion delta-v portion is considered zero.
+    Use when an aerocapture, flyby or extreme lithobraking is intended at the destination. When calculating the total delta-v the insertion portion is considered zero.
 * **Circular**
-    Propulsively brake into a circular orbit at the altitude specified by the next option. Does not change inclination. If the origin and destination bodies are inclined then this orbit will be inclined too.
+    Capture into a circular orbit at the altitude specified by `final_orbit_pe`. Does not change inclination. If the origin and destination bodies are inclined then this orbit will be inclined too.
 * **Elliptical**
-    Capture into a highly elliptical orbit with apoapsis *just* inside the destination's SOI and periapsis at the desired altitude specified by the next option. This can useful if, for example the vessel will send a separate lander down to the surface or it's intended to visit moons of the destination.
+    Capture into a highly elliptical orbit with apoapsis *just* inside the destination's SOI and periapsis at the altitude specified by `final_orbit_pe`. This can come in useful if the vessel will send a separate lander down to the surface or it's intended to visit moons of the destination.
 
 | Key | Default value | Accepted values |
 |:----|:--------------|:----------------|
@@ -85,7 +86,7 @@ The insertion orbit can be one of three types:
 
 ### Final Orbit Periapsis
 
-Sets destination orbit desired altitude or periapsis in meters. For folks who like to live dangerously the special value "min" sets the altitude to 10km above the surface for airless bodies or 10km above the atmosphere. Note: This may not be high enough to clear surface features! Use at your own peril.
+Sets destination orbit desired periapsis in meters. Those who like to live dangerously can use the special value "min" to set the altitude to either 10km above the surface for airless bodies or 10km above the atmosphere. Note: This may not be high enough to clear surface features! Use at your own peril.
 
 | Key | Default value | Accepted values |
 |:----|:--------------|:----------------|
@@ -93,7 +94,7 @@ Sets destination orbit desired altitude or periapsis in meters. For folks who li
 
 ### Verbose
 
-Prints search details to the kOS console if set to true.
+Prints comprehensive details to the kOS console if set to "True".
 
 | Key | Default value | Accepted values |
 |:----|:--------------|:----------------|
@@ -111,7 +112,7 @@ The core functionality is built around a [Lambert's problem](https://en.wikipedi
 
 The Lambert solver code is a kOS port of the [PyKep project](https://github.com/esa/pykep) developed by the European Space Agency. The algorithm and equations are described in excellent detail in the paper [Revisiting Lambert’s problem](https://www.esa.int/gsp/ACT/doc/MAD/pub/ACT-RPR-MAD-2014-RevisitingLambertProblem.pdf) by Dario Izzio.
 
-The original code is very robust and flexible. For the KSP universe some simplifications have been made, in particular multi-revolution transfer orbits are not considered. Interestingly, the Kerboscript code is more concise than the C++ original, thanks to first class support for vector math and the exponent operator, coming in at around 100 lines.
+The original code is very robust and flexible. For the KSP universe some simplifications have been made, in particular multi-revolution transfer orbits are not considered. Interestingly, the Kerboscript code is more concise than the C++ original, thanks to first class support for vector math and the exponent operator, coming in at around 100 lines not including comments.
 
 
 ### Coordinate Descent [(search.ks)](https://github.com/maneatingape/rsvp/blob/master/search.ks)

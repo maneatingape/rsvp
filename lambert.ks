@@ -1,6 +1,6 @@
 @lazyglobal off.
 
-// This code is a kOS port of the PyKep project Lambert's problem solver,
+// This code is a Kerboscript port of the PyKep project Lambert's problem solver,
 // developed by the European Space Agency, available at
 // https://github.com/esa/pykep
 //
