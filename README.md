@@ -16,7 +16,7 @@ This library enables players to make automated low delta-v transfers between two
 2. Unpack this file into the `<KSP install location>/Ships/Script` location, creating a directory `rsvp`. This adds the scripts to the kOS archive volume, making them available to all vessels.
 3. Call the entry point from your own script:
     ```
-    runoncepath("0:rsvp/main.ks").
+    runoncepath("0:/rsvp/main.ks").
 
     // Default value is 250. Overclocking CPU speed to maximum is recommended
     // as finding transfers is computationally intensive.

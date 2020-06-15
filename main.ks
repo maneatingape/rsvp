@@ -1,6 +1,6 @@
 @lazyglobal off.
-runoncepath("0:rsvp/orbit.ks").
-runoncepath("0:rsvp/search.ks").
+runoncepath("0:/rsvp/orbit.ks").
+runoncepath("0:/rsvp/search.ks").
 
 global function find_launch_window {
     parameter origin, destination, options is lexicon().

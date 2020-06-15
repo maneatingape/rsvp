@@ -1,5 +1,5 @@
 @lazyglobal off.
-runoncepath("0:rsvp/lambert.ks").
+runoncepath("0:/rsvp/lambert.ks").
 
 // Returns the minimum period of either the origin or destination.
 //
