@@ -101,9 +101,13 @@ Sets destination orbit desired periapsis in meters. Those who like to live dange
 |:----|:--------------|:----------------|
 | `final_orbit_pe` | 100,000m | Altitude in meters as `Scalar` or the special `String` value "min" |
 
-## Differences between Bodies and Vessels
+## Vessel to vessel rendezvous
 
-Celestial bodies and vessels are treated slightly differently. Setting a vessel as the origin disables the `initial_orbit_altitude` option. In a similar fashion, setting a vessel as the destination disables the `final_orbit_type` and `final_orbit_pe` options.
+Celestial bodies and vessels options are treated slightly differently:
+* Setting a vessel as the origin disables the `initial_orbit_altitude` option.
+* Setting a vessel as the destination disables the `final_orbit_type` and `final_orbit_pe` options.
+
+The vessel rendezvous is very flexible. The vessels can be in any type of orbit, highly elliptical or inclined, and a solution will be found.
 
 ## Technical Details
 
@@ -122,7 +126,7 @@ Graphing the delta-v values returned by the Lambert solver, with departure time 
 
 However the brute force approach of generating every point of this graph would take far too long on kOS. Instead an [iterated local search](https://en.wikipedia.org/wiki/Iterated_local_search) gives a decent probability of finding the global minimum in a shorter time.
 
-The [coordinate descent](https://en.wikipedia.org/wiki/Coordinate_descent) implementation used is a variant of the classic [hill climbing](https://en.wikipedia.org/wiki/Hill_climbing) algorithm. Given a starting point, it always attempts to go "downhill" to a region of lower delta-v, stopping once it cannot go any further.λ
+The [coordinate descent](https://en.wikipedia.org/wiki/Coordinate_descent) implementation used is a variant of the classic [hill climbing](https://en.wikipedia.org/wiki/Hill_climbing) algorithm. Given a starting point, it always attempts to go "downhill" to a region of lower delta-v, stopping once it cannot go any further.
 
 ### Orbital Utilities [(orbit.ks)](https://github.com/maneatingape/rsvp/blob/master/orbit.ks)
 

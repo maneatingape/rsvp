@@ -192,24 +192,35 @@ global function find_launch_window {
 // Bit of hack for now - only works when the origin is a vessel
 // Gets reasonably close (usually within 2km) but it would be nice to refine the node
 // using some kind of coordinate descent algorithm in 3 dimensions (prograde, radial and normal)
-global function create_maneuver_node {
+global function create_maneuver_nodes {
     parameter origin, destination, options is lexicon().
 
     local result is find_launch_window(origin, destination, options).
     if not result:success return result.
 
+    local m1 is create_vessel_node(origin, result:departure_time, result:dv1).
+    add m1.
+
+    local m2 is create_vessel_node(origin, result:arrival_time, result:dv2).
+    add m2.
+
+    return lexicon("success", true, "m1", m1, "m2", m2).
+}
+
+local function create_vessel_node {
+    parameter vessel, node_time, dv.
+
     // Unit vectors of ship prograde, radial and normal directions at departure time.
-    local it1 is velocityat(ship, result:departure_time):orbit:normalized.
-    local ir1 is (positionat(ship, result:departure_time) - ship:body:position):normalized.
+    local it1 is velocityat(vessel, node_time):orbit:normalized.
+    local ir1 is (positionat(vessel, node_time) - vessel:body:position):normalized.
     local ih1 is vcrs(it1, ir1):normalized.
 
     // Components of transfer delta-v in each maneuver node direction
-    local prograde is vdot(it1, result:dv1).
-    local radial is vdot(ir1, result:dv1).
-    local normal is vdot(ih1, result:dv1).
+    local prograde is vdot(it1, dv).
+    local radial is vdot(ir1, dv).
+    local normal is vdot(ih1, dv).
 
-    local manuever is node(result:departure_time, radial, normal, prograde).
-    return lexicon("success", true, "manuever", manuever).
+    return node(node_time, radial, normal, prograde).
 }
 
 local function failure {

@@ -31,7 +31,7 @@ global function transfer_deltav {
     // "velocityat" already returns orbital velocity relative to the parent
     // body, so no adjustment is needed.
     local dv1 is solution:v1 - velocityat(origin, t1):orbit.
-    local dv2 is solution:v2 - velocityat(destination, t2):orbit.
+    local dv2 is velocityat(destination, t2):orbit - solution:v2.
     return lexicon("dv1", dv1, "dv2", dv2).
 }
 
