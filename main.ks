@@ -57,7 +57,7 @@ global function find_launch_window {
     }
 
     // Maximum time of flight
-    local max_time_of_flight is 2 * ideal_hohmann_transfer_tof(origin, destination).
+    local max_time_of_flight is 2 * ideal_hohmann_transfer_period(origin, destination).
 
     if options:haskey("max_time_of_flight") {
         if is_scalar(options:max_time_of_flight) {
@@ -81,7 +81,7 @@ global function find_launch_window {
     if options:haskey("initial_orbit_altitude") {
         if is_vessel(origin) {
             return failure("'initial_orbit_altitude' is not applicable to Vessel").
-        }    
+        }
         else if is_scalar(options:initial_orbit_altitude) {
             set initial_orbit_altitude to options:initial_orbit_altitude.
         }
@@ -103,7 +103,7 @@ global function find_launch_window {
     if options:haskey("final_orbit_type") {
         if is_vessel(destination) {
             return failure("'final_orbit_type' is not applicable to Vessel").
-        }            
+        }
         else if option:final_orbit_type = "none" {
             set insertion_deltav to no_insertion_deltav@.
         }
@@ -124,7 +124,7 @@ global function find_launch_window {
     if options:haskey("final_orbit_pe") {
         if is_vessel(origin) {
             return failure("'final_orbit_pe' is not applicable to Vessel").
-        }    
+        }
         else if is_scalar(options:final_orbit_pe) {
             set final_orbit_pe to options:final_orbit_pe.
         }
@@ -172,7 +172,7 @@ global function find_launch_window {
         print "  Origin: " + origin:name.
         print "  Destination: " + destination:name.
         print "  Earliest Departure: " + seconds_to_kerbin_time(earliest_departure).
-        print "  Latest Departure: " + seconds_to_kerbin_time(latest_departure).        
+        print "  Latest Departure: " + seconds_to_kerbin_time(latest_departure).
     }
 
     local transfer is iterated_local_search(earliest_departure, latest_departure, search_interval, threshold, max_time_of_flight, total_deltav, verbose).

@@ -158,7 +158,7 @@ global function no_insertion_deltav {
 // semi-major axis equal to the average of both planet's semi-major axes.
 // Time of flight can then be calculated analytically using Kepler's 3rd law
 // as half of the total period.
-global function ideal_hohmann_transfer_tof {
+global function ideal_hohmann_transfer_period {
     parameter origin, destination.
 
     local a is (origin:orbit:semimajoraxis + destination:orbit:semimajoraxis) / 2.

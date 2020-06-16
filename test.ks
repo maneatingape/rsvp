@@ -23,7 +23,7 @@ find_launch_window(kerbin, duna, options).
 //vessel_rendezvous().
 
 local function vessel_rendezvous {
-	local origin is vessel("Origin").
-	local destination is vessel("Destination").
-	add create_maneuver_node(origin, destination, options):manuever.
+    local origin is vessel("Origin").
+    local destination is vessel("Destination").
+    add create_maneuver_node(origin, destination, options):manuever.
 }

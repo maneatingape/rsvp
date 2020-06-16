@@ -2,7 +2,7 @@
 
 // Local search algorithms such as hill climbing, gradient descent or
 // coordinate descent can easily get stuck in local minima.
-// 
+//
 // A simple way to work around this drawback is to start several searches at
 // different coordinates. There is then a good chance that at least one of the
 // searches will find the global minimum.
@@ -83,7 +83,7 @@ local function coordinate_descent {
     // Calculate the intial delta-v value at the starting point and also figure
     // out which direction we should be going.
     local prograde_deltav is total_deltav(false, x, y).
-    local retrograde_deltav is total_deltav(true, x, y).    
+    local retrograde_deltav is total_deltav(true, x, y).
     local flip_direction is retrograde_deltav < prograde_deltav.
 
     local deltav is choose retrograde_deltav if flip_direction else prograde_deltav.
@@ -110,7 +110,7 @@ local function coordinate_descent {
         }
         else if direction = next_direction {
             set direction to "none".
-        }     
+        }
     }
 
     until step_size < step_threshold {
@@ -130,7 +130,7 @@ local function coordinate_descent {
             cost(0, step_size, "north").
             cost(0, -step_size, "south").
             cost(step_size, 0, "east").
-            cost(-step_size, 0, "west").            
+            cost(-step_size, 0, "west").
         }
 
         if direction = "north" {

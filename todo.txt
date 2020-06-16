@@ -1,8 +1,6 @@
 [TODO List]
 
 [General]
-* Finish usage guide
-* Readme section per file
 * Create "examples.ks"
 * Unit tests?
 

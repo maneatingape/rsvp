@@ -1,6 +1,7 @@
 # RSVP
 
-*RSVP* is a [kOS](https://ksp-kos.github.io/KOS/) library that finds orbital [launch windows](https://en.wikipedia.org/wiki/Launch_window) in the game [Kerbal Space Program](https://www.kerbalspaceprogram.com/). The initials stand for "Rendezvous s’il vous plaît", a playful twist on the normal meaning on the acronym.
+*RSVP* is a [kOS](https://ksp-kos.github.io/KOS/) library that finds orbital [launch windows](https://en.wikipedia.org/wiki/Launch_window) in the game [Kerbal Space Program](https://www.kerbalspaceprogram.com/).
+The acronym stands for "Rendezvous s’il vous plaît", a playful twist on the regular meaning.
 
 This library enables players to make automated low delta-v transfers between two planets or vessels in-game, either directly from their own kOS scripts or from the kOS console. It provides a scriptable alternative to existing tools, such as the excellent web based [Launch Window Planner](https://alexmoon.github.io/ksp/) or the snazzy [MechJeb Maneuver Planner](https://github.com/MuMech/MechJeb2/wiki/Maneuver-Planner).
 
@@ -34,6 +35,14 @@ This will print the time of the next transfer window from Kerbin to Duna into th
 ## Configuration
 
 The following options allow players to customize and tweak the desired transfer orbit. The general philosophy is that sensible defaults are provided for each option so that only custom values need to be provided. Specify options by adding them as key/value pairs to the `options` lexicon parameter.
+
+### Verbose
+
+Prints comprehensive details to the kOS console if set to "True".
+
+| Key | Default value | Accepted values |
+|:----|:--------------|:----------------|
+| `verbose` | False | `Boolean` |
 
 ### Earliest Departure
 
@@ -92,17 +101,9 @@ Sets destination orbit desired periapsis in meters. Those who like to live dange
 |:----|:--------------|:----------------|
 | `final_orbit_pe` | 100,000m | Altitude in meters as `Scalar` or the special `String` value "min" |
 
-### Verbose
+## Differences between Bodies and Vessels
 
-Prints comprehensive details to the kOS console if set to "True".
-
-| Key | Default value | Accepted values |
-|:----|:--------------|:----------------|
-| `verbose` | False | `Boolean` |
-
-## Vessel to vessel
-
-[TODO]
+Celestial bodies and vessels are treated slightly differently. Setting a vessel as the origin disables the `initial_orbit_altitude` option. In a similar fashion, setting a vessel as the destination disables the `final_orbit_type` and `final_orbit_pe` options.
 
 ## Technical Details
 
@@ -121,17 +122,20 @@ Graphing the delta-v values returned by the Lambert solver, with departure time 
 
 However the brute force approach of generating every point of this graph would take far too long on kOS. Instead an [iterated local search](https://en.wikipedia.org/wiki/Iterated_local_search) gives a decent probability of finding the global minimum in a shorter time.
 
-The [coordinate descent](https://en.wikipedia.org/wiki/Coordinate_descent) implementation used is a variant of the classic [hill climbing](https://en.wikipedia.org/wiki/Hill_climbing) algorithm. Given a starting point, it always attempts to go "downhill" to a region of lower delta-v, stopping once it cannot go any further. 
+The [coordinate descent](https://en.wikipedia.org/wiki/Coordinate_descent) implementation used is a variant of the classic [hill climbing](https://en.wikipedia.org/wiki/Hill_climbing) algorithm. Given a starting point, it always attempts to go "downhill" to a region of lower delta-v, stopping once it cannot go any further.λ
 
-### Orbital mechanics [(orbit.ks)](https://github.com/maneatingape/rsvp/blob/master/orbit.ks)
+### Orbital Utilities [(orbit.ks)](https://github.com/maneatingape/rsvp/blob/master/orbit.ks)
 
-[TODO]
+Collection of functions that:
+* Use the [vis-viva equation](https://en.wikipedia.org/wiki/Vis-viva_equation) to calculate the delta-v between elliptical orbits and hyperbolic transfers, in order to determine the ejection and insertion delta-v values.
+* Provide default value for the time of flight based on the [Hohmann transfer](https://en.wikipedia.org/wiki/Hohmann_transfer_orbit) period.
+* Provide default value for search duration based on [Synodic period](https://en.wikipedia.org/wiki/Orbital_period#Synodic_period).
 
 ## Future Features
 
-Planned additions to the library. Items in this may be added, removed or changed at any time.
+Planned additions to the library. Items in this list may be added, removed or changed at any time.
 
 * **[WIP] Manuever node creator**
-    Create manuever nodes to implement the desired transfer, based on the data returned from the `find_launch_window` function. Currently a very early version that creates a node for vessel-to-vessel transfers lives in `main.ks` 
+    Create manuever nodes to implement the desired transfer, based on the data returned from the `find_launch_window` function. Currently a very rough version that creates a node for vessel-to-vessel transfers lives in `main.ks`.
 * **Impatience factor**
     Apply a weighting factor based on departure time when comparing transfers. This is so that transfers that are higher delta-v but occur sooner are still considered in order to reduce time-warping. For example a transfer in 1 year that is 10 m/s higher than a transfer in 3 years may be more convenient.
