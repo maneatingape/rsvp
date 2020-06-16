@@ -67,8 +67,7 @@ global function lambert {
 
     // Determine Lancaster-Blanchard variable "x".
     local x0 is initial_guess(lambda, t).
-    local f is householders_method@:bind(lambda, t).
-    local x is iterative_root_finder(x0, f, 1e-5, 15).
+    local x is iterative_root_finder(lambda, t, x0).
 
     // Construct velocity vectors from "x"
     local y is sqrt(1 - lambda ^ 2 * (1 - x ^ 2)).
@@ -85,7 +84,7 @@ global function lambert {
 }
 
 // The formulas for the initial guess of "x" are so accurate that on average
-// only 2 to 3 iterations of Householder's method below are needed to converge.
+// only 2 to 3 iterations of Householder's method are needed to converge.
 local function initial_guess {
     parameter lambda, t.
 
@@ -101,6 +100,22 @@ local function initial_guess {
     }
 }
 
+// Helper function to run iterative root finding algorithms.
+local function iterative_root_finder {
+    parameter lambda, t, x.
+
+    local delta is 1.
+    local iterations is 0.
+
+    until abs(delta) < 0.00001 or iterations = 15 {
+        set delta to householders_method(lambda, t, x).
+        set x to x - delta.
+        set iterations to iterations + 1.
+    }
+
+    return x.
+}
+
 // 3rd order Householder's method. For some context the method of order 1 is the
 // well known Newton's method and the method of order 2 is Halley's method.
 local function householders_method {
@@ -109,8 +124,8 @@ local function householders_method {
     local a is 1 - x ^ 2.
     local y is sqrt(1 - lambda ^ 2 * a).
     local tau is time_of_flight(lambda, a, x, y).
-
     local delta is tau - t.
+
     local dt is (3 * tau * x - 2 + 2 * (lambda ^ 3) * x / y) / a.
     local ddt is (3 * tau + 5 * x * dt + 2 * (1 - lambda ^ 2) * (lambda ^ 3) / (y ^ 3)) / a.
     local dddt is (7 * x * ddt + 8 * dt - 6 * (1 - lambda ^ 2) * (lambda ^ 5) * x / (y ^ 5)) / a.
@@ -124,24 +139,7 @@ local function time_of_flight {
 
     local b is sqrt(abs(a)).
     local c is lambda * a + x * y.
-    local psi is choose constant:degtorad * arccos(c) if a > 0 else ln(b * (y - lambda * x) + c).
+    local psi is choose constant:degtorad * arccos(c) if a > 0 else ln(c + b * (y - lambda * x)).
 
     return (psi / b - x + lambda * y) / a.
-}
-
-// Helper function to run iterative root finding algorithms.
-local function iterative_root_finder {
-    parameter x0, f, epsilon, max_iterations.
-
-    local delta is epsilon.
-    local x is x0.
-    local iterations is 0.
-
-    until abs(delta) < epsilon or iterations = max_iterations {
-        set delta to f(x).
-        set x to x - delta.
-        set iterations to iterations + 1.
-    }
-
-    return x.
 }

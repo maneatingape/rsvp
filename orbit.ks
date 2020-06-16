@@ -156,15 +156,14 @@ global function no_insertion_deltav {
 //
 // This means that the idealized transfer orbit is an elliptical orbit with a
 // semi-major axis equal to the average of both planet's semi-major axes.
-// Time of flight can then be calculated analytically using Kepler's 3rd law
-// as half of the total period.
+// The period can then be determined analytically using Kepler's 3rd law.
 global function ideal_hohmann_transfer_period {
     parameter origin, destination.
 
     local a is (origin:orbit:semimajoraxis + destination:orbit:semimajoraxis) / 2.
     local mu is origin:body:mu.
 
-    return constant:pi * sqrt(a ^ 3 / mu).
+    return 2 * constant:pi * sqrt(a ^ 3 / mu).
 }
 
 // Calculate the syndodic period. This is the time between conjunctions when
@@ -191,16 +190,16 @@ global function synodic_period {
     return abs(p1 * p2 / (p1 - p2)).
 }
 
-// Returns the minimum period of either the origin or destination.
-global function min_period {
-    parameter origin, destination.
-
-    return min(origin:orbit:period, destination:orbit:period).
-}
-
 // Returns the maximum period of either the origin or destination.
 global function max_period {
     parameter origin, destination.
 
     return max(origin:orbit:period, destination:orbit:period).
+}
+
+// Returns the minimum period of either the origin or destination.
+global function min_period {
+    parameter origin, destination.
+
+    return min(origin:orbit:period, destination:orbit:period).
 }

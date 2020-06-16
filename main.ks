@@ -57,7 +57,7 @@ global function find_launch_window {
     }
 
     // Maximum time of flight
-    local max_time_of_flight is 2 * ideal_hohmann_transfer_period(origin, destination).
+    local max_time_of_flight is ideal_hohmann_transfer_period(origin, destination).
 
     if options:haskey("max_time_of_flight") {
         if is_scalar(options:max_time_of_flight) {
