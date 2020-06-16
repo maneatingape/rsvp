@@ -1,14 +1,12 @@
-[TODO List]
-
 [General]
-* Create "examples.ks"
 * Unit tests?
+* Create "examples.ks"
 
 [main.ks]
-* Function per option & multiple error handling?
+* Maneuver node refinement
 * Impatience factor?
 * Reject unknown options
-* Maneuver node refinement
+* Function per option & multiple error handling?
 
 [search.ks]
-* Extract formatted time and clamp?
+* Extract formatted time?

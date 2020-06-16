@@ -66,8 +66,7 @@ global function lambert {
     }
 
     // Determine Lancaster-Blanchard variable "x".
-    local x0 is initial_guess(lambda, t).
-    local x is iterative_root_finder(lambda, t, x0).
+    local x is iterative_root_finder(lambda, t).
 
     // Construct velocity vectors from "x"
     local y is sqrt(1 - lambda ^ 2 * (1 - x ^ 2)).
@@ -81,6 +80,23 @@ global function lambert {
     local v1 is (gamma / m1) * (vr1 * ir1 + vt * it1).
     local v2 is (gamma / m2) * (vr2 * ir2 + vt * it2).
     return lexicon("v1", v1, "v2", v2).
+}
+
+// Helper function to run iterative root finding algorithms.
+local function iterative_root_finder {
+    parameter lambda, t.
+
+    local x is initial_guess(lambda, t).
+    local delta is 1.
+    local iterations is 0.
+
+    until abs(delta) < 0.00001 or iterations = 15 {
+        set delta to householders_method(lambda, t, x).
+        set x to x - delta.
+        set iterations to iterations + 1.
+    }
+
+    return x.
 }
 
 // The formulas for the initial guess of "x" are so accurate that on average
@@ -98,22 +114,6 @@ local function initial_guess {
     } else {
         return (t0 / t) ^ (ln(t1 / t0) / ln(2)) - 1.
     }
-}
-
-// Helper function to run iterative root finding algorithms.
-local function iterative_root_finder {
-    parameter lambda, t, x.
-
-    local delta is 1.
-    local iterations is 0.
-
-    until abs(delta) < 0.00001 or iterations = 15 {
-        set delta to householders_method(lambda, t, x).
-        set x to x - delta.
-        set iterations to iterations + 1.
-    }
-
-    return x.
 }
 
 // 3rd order Householder's method. For some context the method of order 1 is the
