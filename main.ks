@@ -1,6 +1,7 @@
 @lazyglobal off.
 runoncepath("0:/rsvp/orbit.ks").
 runoncepath("0:/rsvp/search.ks").
+runoncepath("0:/rsvp/jitter.ks").
 
 global function find_launch_window {
     parameter origin, destination, options is lexicon().
@@ -157,7 +158,7 @@ global function find_launch_window {
     local search_interval is 0.5 * min_period(origin, destination).
     local threshold is choose 3600 if is_body(origin) else 60.
 
-    local total_deltav is {
+    local function total_deltav {
         parameter flip_direction, departure_time, time_of_flight.
 
         local solution is transfer_deltav(origin, destination, flip_direction, departure_time, departure_time + time_of_flight).
@@ -165,7 +166,7 @@ global function find_launch_window {
         local insertion is insertion_deltav(destination, final_orbit_pe, solution:dv2).
 
         return ejection + insertion.
-    }.
+    }
 
     if verbose {
         print "Details".
@@ -175,7 +176,7 @@ global function find_launch_window {
         print "  Latest Departure: " + seconds_to_kerbin_time(latest_departure).
     }
 
-    local transfer is iterated_local_search(earliest_departure, latest_departure, search_interval, threshold, max_time_of_flight, total_deltav, verbose).
+    local transfer is iterated_local_search(earliest_departure, latest_departure, search_interval, threshold, max_time_of_flight, total_deltav@, verbose).
     local details is transfer_deltav(origin, destination, transfer:flip_direction, transfer:departure, transfer:arrival).
 
     local result is lexicon().
@@ -188,23 +189,27 @@ global function find_launch_window {
     return result.
 }
 
-// WORK IN PROGRESS
-// Bit of hack for now - only works when the origin is a vessel
-// Gets reasonably close (usually within 2km) but it would be nice to refine the node
-// using some kind of coordinate descent algorithm in 3 dimensions (prograde, radial and normal)
+// WORK IN PROGRESS - only works when both origin and destination are vessels.
+// Using coordinate descent algorithm in 3 dimensions (prograde, radial and normal)
+// to refine calculated node and get a closer intercept.
 global function create_maneuver_nodes {
     parameter origin, destination, options is lexicon().
 
     local result is find_launch_window(origin, destination, options).
     if not result:success return result.
+    if hasnode return failure("Existing maneuver nodes already exist.").
 
-    local m1 is create_vessel_node(origin, result:departure_time, result:dv1).
-    add m1.
+    local function intercept_distance {
+        return (positionat(origin, result:arrival_time) - positionat(destination, result:arrival_time)):mag.
+    }
 
-    local m2 is create_vessel_node(origin, result:arrival_time, result:dv2).
-    add m2.
+    local maneuver is create_vessel_node(origin, result:departure_time, result:dv1).
+    add maneuver.
 
-    return lexicon("success", true, "m1", m1, "m2", m2).
+    local predicted_separation is coordinate_descent(maneuver, intercept_distance@).
+    result:add("predicted_separation", predicted_separation).
+
+    return result.
 }
 
 local function create_vessel_node {

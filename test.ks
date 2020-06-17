@@ -10,7 +10,7 @@ local options is lexicon("verbose", true).
 // Planets outward journey
 //find_launch_window(kerbin, moho, options).
 //find_launch_window(kerbin, eve, options).
-find_launch_window(kerbin, duna, options).
+//find_launch_window(kerbin, duna, options).
 //find_launch_window(kerbin, jool, options).
 //find_launch_window(kerbin, eeloo, options).
 
@@ -20,10 +20,15 @@ find_launch_window(kerbin, duna, options).
 // Return journey
 //find_launch_window(eeloo, moho, options).
 
-//vessel_rendezvous().
+vessel_rendezvous().
 
 local function vessel_rendezvous {
+    until not hasnode {
+        remove nextnode.
+        wait 0.
+    }
+
     local origin is vessel("Origin").
     local destination is vessel("Destination").
-    add create_maneuver_node(origin, destination, options):manuever.
+    print create_maneuver_nodes(origin, destination, options).
 }

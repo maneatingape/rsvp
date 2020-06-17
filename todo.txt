@@ -1,6 +1,7 @@
 [General]
 * Unit tests?
 * Create "examples.ks"
+* Run profiler?
 
 [main.ks]
 * Maneuver node refinement
