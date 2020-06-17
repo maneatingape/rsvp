@@ -70,11 +70,12 @@ global function lambert {
 
     // Construct velocity vectors from "x"
     local y is sqrt(1 - lambda ^ 2 * (1 - x ^ 2)).
+    local z is lambda * y.
     local rho is (m1 - m2) / c.
     local gamma is sqrt(mu * s / 2).
 
-    local vr1 is (lambda * y - x) - rho * (lambda * y + x).
-    local vr2 is (x - lambda * y) - rho * (lambda * y + x).
+    local vr1 is (z - x) - rho * (x + z).
+    local vr2 is (x - z) - rho * (x + z).
     local vt is sqrt(1 - rho ^ 2) * (y + lambda * x).
 
     local v1 is (gamma / m1) * (vr1 * ir1 + vt * it1).
