@@ -1,14 +1,5 @@
 @lazyglobal off.
 
-local directions is lexicon(
-    "north", v(1, 0, 0),
-    "south", v(-1, 0, 0),
-    "east", v(0, 1, 0),
-    "west", v(0, -1, 0),
-    "up", v(0, 0, 1),
-    "down", v(0, 0, -1)
-).
-
 global function coordinate_descent {
     parameter node, intercept_distance.
 
@@ -19,10 +10,9 @@ global function coordinate_descent {
     local distance is intercept_distance().
     local current_vector is v(node:radialout, node:normal, node:prograde).
     local next_vector is current_vector.
-    local direction is "none".
 
-    local original_distance is distance.
-    local original_deltav is node:deltav:mag.
+    local directions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0), v(0, 0, 1), v(0, 0, -1)).    
+    local direction is "none".
 
     local function set_node {
         parameter v.
@@ -32,9 +22,9 @@ global function coordinate_descent {
     }
 
     local function cost {
-        parameter test_direction, delta.
+        parameter test_direction.
 
-        local test_vector is current_vector + step_size * delta.
+        local test_vector is current_vector + step_size * test_direction.
         set_node(test_vector).
         local test_distance is intercept_distance().
 
@@ -49,13 +39,13 @@ global function coordinate_descent {
     }
 
     until step_size < step_threshold {
-        if directions:haskey(direction) {
-            cost(direction, directions[direction]).
+        if direction = "none" {
+            for test_direction in directions {
+                cost(test_direction).
+            }
         }
         else {
-            for test_direction in directions:keys {
-                cost(test_direction, directions[test_direction]).
-            }
+            cost(direction).
         }
 
         set current_vector to next_vector.
