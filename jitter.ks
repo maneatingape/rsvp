@@ -1,38 +1,42 @@
 @lazyglobal off.
 
-global function coordinate_descent {
-    parameter node, intercept_distance.
+local directions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0), v(0, 0, 1), v(0, 0, -1)).
 
+global function coordinate_descent {
+    parameter intercept_distance, position.
+
+    local invocations is 0.
+    local initial_cost is cost(position).
     local step_size is 1.
     local step_threshold is 0.001.
-    local step_factor is 0.5.
-
-    local distance is intercept_distance().
-    local current_vector is v(node:radialout, node:normal, node:prograde).
-    local next_vector is current_vector.
-
-    local directions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0), v(0, 0, 1), v(0, 0, -1)).    
-    local direction is "none".
-
-    local function set_node {
-        parameter v.
-        set node:radialout to v:x.
-        set node:normal to v:y.
-        set node:prograde to v:z.
-    }
 
     local function cost {
+        parameter v.
+        set invocations to invocations + 1.
+        return intercept_distance(v).
+    }
+
+    return inner(cost@, position, initial_cost, step_size, step_threshold).
+}
+
+local function inner {
+    parameter cost, position, minimum, step_size, step_threshold.
+
+    local next_position is position.
+    local direction is "none".
+
+    local function test {
         parameter test_direction.
 
-        local test_vector is current_vector + step_size * test_direction.
-        set_node(test_vector).
-        local test_distance is intercept_distance().
+        local test_position is position + step_size * test_direction.
+        local test_cost is cost(test_position).
 
-        if test_distance < distance {
-            set distance to test_distance.
-            set next_vector to test_vector.
+        if test_cost < minimum {
+            set minimum to test_cost.
+            set next_position to test_position.
             set direction to test_direction.
         }
+        // Stop if we are currently line searching.
         else if direction = test_direction {
             set direction to "none".
         }
@@ -41,20 +45,20 @@ global function coordinate_descent {
     until step_size < step_threshold {
         if direction = "none" {
             for test_direction in directions {
-                cost(test_direction).
+                test(test_direction).
             }
         }
         else {
-            cost(direction).
+            test(direction).
         }
 
-        set current_vector to next_vector.
-        set_node(current_vector).
-
         if direction = "none" {
-            set step_size to step_size * step_factor.
+            set step_size to step_size * 0.5.
+        }
+        else {
+            set position to next_position.
         }
     }
 
-    return distance.
+    return lexicon("position", position, "minimum", minimum).
 }

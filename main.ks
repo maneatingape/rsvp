@@ -190,25 +190,40 @@ global function find_launch_window {
 }
 
 // WORK IN PROGRESS - only works when both origin and destination are vessels.
-// Using coordinate descent algorithm in 3 dimensions (prograde, radial and normal)
-// to refine calculated node and get a closer intercept.
+// Applies coordinate descent algorithm in 3 dimensions (prograde, radial and normal)
+// to refine initial manuever node and get a closer intercept.
 global function create_maneuver_nodes {
     parameter origin, destination, options is lexicon().
 
-    local result is find_launch_window(origin, destination, options).
-    if not result:success return result.
+    local transfer is find_launch_window(origin, destination, options).
+    if not transfer:success return transfer.
     if hasnode return failure("Existing maneuver nodes already exist.").
 
-    local function intercept_distance {
-        return (positionat(origin, result:arrival_time) - positionat(destination, result:arrival_time)):mag.
-    }
-
-    local maneuver is create_vessel_node(origin, result:departure_time, result:dv1).
+    local maneuver is create_vessel_node(origin, transfer:departure_time, transfer:dv1).
     add maneuver.
 
-    local predicted_separation is coordinate_descent(maneuver, intercept_distance@).
-    result:add("predicted_separation", predicted_separation).
+    local function update_node {
+        parameter v.
+        set maneuver:radialout to v:x.
+        set maneuver:normal to v:y.
+        set maneuver:prograde to v:z.
+    }
 
+    local function intercept_distance {
+        parameter v.
+        update_node(v).
+        return (positionat(origin, transfer:arrival_time) - positionat(destination, transfer:arrival_time)):mag.
+    }
+
+    local position is v(maneuver:radialout, maneuver:normal, maneuver:prograde).
+    local details is coordinate_descent(intercept_distance@, position).
+    update_node(details:position).
+
+    local result is lexicon().
+    result:add("success", true).
+    result:add("arrival_time", transfer:arrival_time).
+    result:add("approximate_deltav", transfer:total_deltav).
+    result:add("approximate_separation", details:minimum).
     return result.
 }
 
