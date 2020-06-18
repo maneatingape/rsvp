@@ -12,18 +12,17 @@
 // orbital parameters provides the "cost" function of the delta-v requirement
 // at any given (x,y) point.
 global function iterated_local_search {
-    parameter earliest_departure, latest_departure, search_interval, threshold, max_time_of_flight, total_deltav, verbose.
+    parameter earliest_departure, latest_departure, search_interval, step_threshold, max_time_of_flight, total_deltav, verbose.
 
     // y is always bounded to the interval [0, max_time_of_flight]
-    local clamp_y is clamp@:bind(0, max_time_of_flight).
+    local min_y is 0.
+    local max_y is max_time_of_flight.
+
     // The default max_time_of_flight is twice the ideal Hohmann transfer time,
     // so setting the intial guess to half of that will be reasonably close to
     // the final value in most cases.
     local y is max_time_of_flight * 0.5.
-
     local step_size is search_interval * 0.1.
-    local step_threshold is threshold.
-    local step_factor is 0.5.
 
     // Sneaky trick here. When comparing a scalar and a string, kOS converts the
     // scalar to a string then compares them lexicographically.
@@ -39,19 +38,46 @@ global function iterated_local_search {
         // find it.
         local min_x is max(earliest_departure, x - search_interval).
         local max_x is min(latest_departure, x + 2 * search_interval).
-        local clamp_x is clamp@:bind(min_x, max_x).
 
-        // Start a search from this location, updating "result" if "candidate"
-        // delta-v is lower.
-        local candidate is coordinate_descent(clamp_x, clamp_y, x, y, step_size, step_threshold, step_factor, total_deltav).
-        set result to choose candidate if candidate:deltav < result:deltav else result.
-        set invocations to invocations + candidate:invocations.
+        // Calculate the intial delta-v value at the starting point and also figure
+        // out which direction we should be going.
+        local prograde_deltav is total_deltav(false, x, y).
+        local retrograde_deltav is total_deltav(true, x, y).
+        local flip_direction is retrograde_deltav < prograde_deltav.
+        local initial_deltav is choose retrograde_deltav if flip_direction else prograde_deltav.
+
+        set invocations to invocations + 2.
+        function cost {
+            parameter v.
+
+            if v:x < min_x or v:x > max_x or v:y < 0 or v:y > max_y or v:z <> 0 {
+                return "max".
+            }
+            else {
+                set invocations to invocations + 1.
+                return total_deltav(flip_direction, v:x, v:y).
+            }
+        }
+
+        // Start a search from this location, updating "result" if "candidate" delta-v is lower.
+        local candidate is coordinate_descent(cost@, v(x, y, 0), initial_deltav, step_size, step_threshold).
+        local departure is candidate:position:x.
+        local arrival is candidate:position:x + candidate:position:y.
+        local deltav is candidate:minimum.
 
         if verbose {
             print "Search offset: " + seconds_to_kerbin_time(x).
-            print "  Departure: " + seconds_to_kerbin_time(candidate:departure).
-            print "  Arrival: " + seconds_to_kerbin_time(candidate:arrival).
-            print "  Delta-v: " + round(candidate:deltav).
+            print "  Departure: " + seconds_to_kerbin_time(departure).
+            print "  Arrival: " + seconds_to_kerbin_time(arrival).
+            print "  Delta-v: " + round(deltav).
+        }
+
+        if deltav < result:deltav {
+            set result to lexicon().
+            result:add("departure", departure).
+            result:add("arrival", arrival).
+            result:add("deltav", deltav).
+            result:add("flip_direction", flip_direction).
         }
     }
 
@@ -66,6 +92,23 @@ global function iterated_local_search {
     return result.
 }
 
+global function refine_maneuver_node {
+    parameter intercept_distance, position.
+
+    local invocations is 0.
+    local initial_cost is cost(position).
+    local step_size is 1.
+    local step_threshold is 0.001.
+
+    local function cost {
+        parameter v.
+        set invocations to invocations + 1.
+        return intercept_distance(v).
+    }
+
+    return coordinate_descent(cost@, position, initial_cost, step_size, step_threshold).
+}
+
 // Coordinate descent is a variant of the hill climbing algorithm, where only
 // one dimension (x or y) is minimized at a time. This algorithm implements this
 // with a simple binary search approach. This converges reasonable quickly wihout
@@ -74,89 +117,53 @@ global function iterated_local_search {
 // The approach is:
 // (1) Choose an initial starting position
 // (2) Determine the lowest cost at a point "step_size" distance away, looking
-//     in both directions on both the x and y axes.
+//     in both positive and negative directions on the x, y and z axes.
 // (3) Continue in this direction until the cost increases
-// (4) Half the step size, terminating if below a threshold, then go to step (2)
+// (4) Half the step size, terminating if below the threshold, then go to step (2)
+local directions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0), v(0, 0, 1), v(0, 0, -1)).
+
 local function coordinate_descent {
-    parameter clamp_x, clamp_y, x, y, step_size, step_threshold, step_factor, total_deltav.
+    parameter cost, position, minimum, step_size, step_threshold.
 
-    // Calculate the intial delta-v value at the starting point and also figure
-    // out which direction we should be going.
-    local prograde_deltav is total_deltav(false, x, y).
-    local retrograde_deltav is total_deltav(true, x, y).
-    local flip_direction is retrograde_deltav < prograde_deltav.
-
-    local deltav is choose retrograde_deltav if flip_direction else prograde_deltav.
-    local invocations is 2.
+    local next_position is position.
     local direction is "none".
 
-    // Tests the delta-v value in a particular direction, possibly updating
-    // both delta-v and direction.
-    local function cost {
-        parameter dx, dy, next_direction is direction.
+    local function test {
+        parameter test_direction.
 
-        local next_x is clamp_x(x + dx).
-        local next_y is clamp_y(y + dy).
-        local next_deltav is deltav.
+        local test_position is position + step_size * test_direction.
+        local test_cost is cost(test_position).
 
-        if next_x <> x or next_y <> y {
-            set invocations to invocations + 1.
-            set next_deltav to total_deltav(flip_direction, next_x, next_y).
+        if test_cost < minimum {
+            set minimum to test_cost.
+            set next_position to test_position.
+            set direction to test_direction.
         }
-
-        if next_deltav < deltav {
-            set deltav to next_deltav.
-            set direction to next_direction.
-        }
-        else if direction = next_direction {
+        // Stop if we are currently line searching.
+        else if direction = test_direction {
             set direction to "none".
         }
     }
 
     until step_size < step_threshold {
-        if direction = "north" {
-            cost(0, step_size).
-        }
-        else if direction = "south" {
-            cost(0, -step_size).
-        }
-        else if direction = "east" {
-            cost(step_size, 0).
-        }
-        else if direction = "west" {
-            cost(-step_size, 0).
+        if direction = "none" {
+            for test_direction in directions {
+                test(test_direction).
+            }
         }
         else {
-            cost(0, step_size, "north").
-            cost(0, -step_size, "south").
-            cost(step_size, 0, "east").
-            cost(-step_size, 0, "west").
+            test(direction).
         }
 
-        if direction = "north" {
-            set y to clamp_y(y + step_size).
-        }
-        else if direction = "south" {
-            set y to clamp_y(y - step_size).
-        }
-        else if direction = "east" {
-            set x to clamp_x(x + step_size).
-        }
-        else if direction = "west" {
-            set x to clamp_x(x - step_size).
+        if direction = "none" {
+            set step_size to step_size * 0.5.
         }
         else {
-            set step_size to step_size * step_factor.
+            set position to next_position.
         }
     }
 
-    return lexicon("flip_direction", flip_direction, "departure", x, "arrival", x + y, "deltav", deltav, "invocations", invocations).
-}
-
-local function clamp {
-    parameter min_n, max_n, n.
-
-    return min(max(n, min_n), max_n).
+    return lexicon("position", position, "minimum", minimum).
 }
 
 global function seconds_to_kerbin_time {

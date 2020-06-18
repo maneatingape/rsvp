@@ -1,7 +1,6 @@
 @lazyglobal off.
 runoncepath("0:/rsvp/orbit.ks").
 runoncepath("0:/rsvp/search.ks").
-runoncepath("0:/rsvp/jitter.ks").
 
 global function find_launch_window {
     parameter origin, destination, options is lexicon().
@@ -181,9 +180,9 @@ global function find_launch_window {
 
     local result is lexicon().
     result:add("success", true).
-    result:add("departure_time", transfer:departure).
-    result:add("arrival_time", transfer:arrival).
-    result:add("total_deltav", transfer:deltav).
+    result:add("departure", transfer:departure).
+    result:add("arrival", transfer:arrival).
+    result:add("deltav", transfer:deltav).
     result:add("dv1", details:dv1).
     result:add("dv2", details:dv2).
     return result.
@@ -199,7 +198,7 @@ global function create_maneuver_nodes {
     if not transfer:success return transfer.
     if hasnode return failure("Existing maneuver nodes already exist.").
 
-    local maneuver is create_vessel_node(origin, transfer:departure_time, transfer:dv1).
+    local maneuver is create_vessel_node(origin, transfer:departure, transfer:dv1).
     add maneuver.
 
     local function update_node {
@@ -212,17 +211,17 @@ global function create_maneuver_nodes {
     local function intercept_distance {
         parameter v.
         update_node(v).
-        return (positionat(origin, transfer:arrival_time) - positionat(destination, transfer:arrival_time)):mag.
+        return (positionat(origin, transfer:arrival) - positionat(destination, transfer:arrival)):mag.
     }
 
     local position is v(maneuver:radialout, maneuver:normal, maneuver:prograde).
-    local details is coordinate_descent(intercept_distance@, position).
+    local details is refine_maneuver_node(intercept_distance@, position).
     update_node(details:position).
 
     local result is lexicon().
     result:add("success", true).
-    result:add("arrival_time", transfer:arrival_time).
-    result:add("approximate_deltav", transfer:total_deltav).
+    result:add("arrival", transfer:arrival).
+    result:add("approximate_deltav", transfer:deltav).
     result:add("approximate_separation", details:minimum).
     return result.
 }

@@ -4,7 +4,6 @@
 * Run profiler?
 
 [main.ks]
-* Maneuver node refinement
 * Impatience factor?
 * Reject unknown options
 * Function per option & multiple error handling?
