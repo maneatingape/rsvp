@@ -32,6 +32,7 @@ global function transfer_deltav {
     // body, so no adjustment is needed.
     local dv1 is solution:v1 - velocityat(origin, t1):orbit.
     local dv2 is velocityat(destination, t2):orbit - solution:v2.
+
     return lexicon("dv1", dv1, "dv2", dv2).
 }
 
@@ -69,6 +70,7 @@ global function equatorial_ejection_deltav {
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
 
     local cos_i is v(dv:x, 0, dv:z):mag / v2.
+    
     return sqrt(ve ^ 2 + v1 ^ 2 - 2 * ve * v1 * cos_i).
 }
 
@@ -137,12 +139,14 @@ global function elliptical_insertion_deltav {
 // Vessels have no SOI or gravity so the delta-v required is exactly the transfer orbit delta-v.
 global function vessel_rendezvous_deltav {
     parameter body, altitude, dv.
+
     return dv:mag.
 }
 
 // Calculates the delta-v required for a flyby, aerocapture or extreme lithobrake...
 global function no_insertion_deltav {
     parameter body, altitude, dv.
+
     return 0.
 }
 

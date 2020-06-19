@@ -10,7 +10,7 @@ local options is lexicon("verbose", true).
 // Planets outward journey
 //find_launch_window(kerbin, moho, options).
 //find_launch_window(kerbin, eve, options).
-//find_launch_window(kerbin, duna, options).
+find_launch_window(kerbin, duna, options).
 //find_launch_window(kerbin, jool, options).
 //find_launch_window(kerbin, eeloo, options).
 
@@ -20,7 +20,7 @@ local options is lexicon("verbose", true).
 // Return journey
 //find_launch_window(eeloo, moho, options).
 
-vessel_rendezvous().
+//vessel_rendezvous().
 
 local function vessel_rendezvous {
     until not hasnode {

@@ -9,4 +9,5 @@
 * Function per option & multiple error handling?
 
 [search.ks]
+* Planet intercept refinement
 * Extract formatted time?

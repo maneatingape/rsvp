@@ -14,10 +14,6 @@
 global function iterated_local_search {
     parameter earliest_departure, latest_departure, search_interval, step_threshold, max_time_of_flight, total_deltav, verbose.
 
-    // y is always bounded to the interval [0, max_time_of_flight]
-    local min_y is 0.
-    local max_y is max_time_of_flight.
-
     // The default max_time_of_flight is twice the ideal Hohmann transfer time,
     // so setting the intial guess to half of that will be reasonably close to
     // the final value in most cases.
@@ -50,7 +46,8 @@ global function iterated_local_search {
         function cost {
             parameter v.
 
-            if v:x < min_x or v:x > max_x or v:y < 0 or v:y > max_y or v:z <> 0 {
+            // y is always bounded to the interval [0, max_time_of_flight]
+            if v:x < min_x or v:x > max_x or v:y < 0 or v:y > max_time_of_flight {
                 return "max".
             }
             else {
@@ -60,7 +57,7 @@ global function iterated_local_search {
         }
 
         // Start a search from this location, updating "result" if "candidate" delta-v is lower.
-        local candidate is coordinate_descent(cost@, v(x, y, 0), initial_deltav, step_size, step_threshold).
+        local candidate is coordinate_descent_2d(cost@, v(x, y, 0), initial_deltav, step_size, step_threshold).
         local departure is candidate:position:x.
         local arrival is candidate:position:x + candidate:position:y.
         local deltav is candidate:minimum.
@@ -106,7 +103,7 @@ global function refine_maneuver_node {
         return intercept_distance(v).
     }
 
-    return coordinate_descent(cost@, position, initial_cost, step_size, step_threshold).
+    return coordinate_descent_3d(cost@, position, initial_cost, step_size, step_threshold).
 }
 
 // Coordinate descent is a variant of the hill climbing algorithm, where only
@@ -120,10 +117,8 @@ global function refine_maneuver_node {
 //     in both positive and negative directions on the x, y and z axes.
 // (3) Continue in this direction until the cost increases
 // (4) Half the step size, terminating if below the threshold, then go to step (2)
-local directions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0), v(0, 0, 1), v(0, 0, -1)).
-
 local function coordinate_descent {
-    parameter cost, position, minimum, step_size, step_threshold.
+    parameter dimensions, cost, position, minimum, step_size, step_threshold.
 
     local next_position is position.
     local direction is "none".
@@ -147,7 +142,7 @@ local function coordinate_descent {
 
     until step_size < step_threshold {
         if direction = "none" {
-            for test_direction in directions {
+            for test_direction in dimensions {
                 test(test_direction).
             }
         }
@@ -166,9 +161,18 @@ local function coordinate_descent {
     return lexicon("position", position, "minimum", minimum).
 }
 
+local one_dimension is list(v(1, 0, 0), v(-1, 0, 0)).
+local two_dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
+local three_dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0), v(0, 0, 1), v(0, 0, -1)).
+
+global coordinate_descent_1d is coordinate_descent@:bind(one_dimension).
+global coordinate_descent_2d is coordinate_descent@:bind(two_dimensions).
+global coordinate_descent_3d is coordinate_descent@:bind(three_dimensions).
+
 global function seconds_to_kerbin_time {
     parameter seconds.
 
     local timespan is time(seconds).
+
     return timespan:calendar + " " + timespan:clock.
 }
