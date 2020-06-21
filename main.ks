@@ -160,9 +160,9 @@ global function find_launch_window {
     local function total_deltav {
         parameter flip_direction, departure_time, time_of_flight.
 
-        local solution is transfer_deltav(origin, destination, flip_direction, departure_time, departure_time + time_of_flight).
-        local ejection is ejection_deltav(origin, initial_orbit_altitude, solution:dv1).
-        local insertion is insertion_deltav(destination, final_orbit_pe, solution:dv2).
+        local details is transfer_deltav(origin, destination, flip_direction, departure_time, departure_time + time_of_flight).
+        local ejection is ejection_deltav(origin, initial_orbit_altitude, details:s1 - details:v1).
+        local insertion is insertion_deltav(destination, final_orbit_pe, details:v2 - details:s2).
 
         return ejection + insertion.
     }
@@ -183,8 +183,8 @@ global function find_launch_window {
     result:add("departure", transfer:departure).
     result:add("arrival", transfer:arrival).
     result:add("deltav", transfer:deltav).
-    result:add("dv1", details:dv1).
-    result:add("dv2", details:dv2).
+    result:add("dv1", details:s1 - details:v1).
+    result:add("dv2", details:v2 - details:s2).
     return result.
 }
 

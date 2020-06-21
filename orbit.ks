@@ -30,10 +30,10 @@ global function transfer_deltav {
 
     // "velocityat" already returns orbital velocity relative to the parent
     // body, so no adjustment is needed.
-    local dv1 is solution:v1 - velocityat(origin, t1):orbit.
-    local dv2 is velocityat(destination, t2):orbit - solution:v2.
+    local v1 is velocityat(origin, t1):orbit.
+    local v2 is velocityat(destination, t2):orbit.
 
-    return lexicon("dv1", dv1, "dv2", dv2).
+    return lexicon("s1", solution:v1, "s2", solution:v2, "v1", v1, "v2", v2).
 }
 
 // Calculate the delta-v required to eject into a hyperbolic transfer orbit
@@ -56,22 +56,32 @@ global function transfer_deltav {
 // sides 'v1" and "ve'. The length of the 3rd side is the magnitude of our required
 // delta-v and can be determined using the cosine rule. We calculate the cosine
 // directly from the magnitudes of "v2" and the adjusted v2 with zero y component.
+
+// This PDF has great illustrations and details on some of the math:
+// https://ocw.mit.edu/courses/aeronautics-and-astronautics/16-07-dynamics-fall-2009/lecture-notes/MIT16_07F09_Lec17.pdf
 //
 // The next comment section contains details on how "v1" and "ve" are calculated.
 global function equatorial_ejection_deltav {
-    parameter body, altitude, dv.
+    parameter body, altitude, intercept_deltav.
 
     local mu is body:mu.
     local r1 is body:radius + altitude.
     local r2 is body:soiradius.
 
     local v1 is sqrt(mu / r1).
-    local v2 is dv:mag.
+    local v2 is intercept_deltav:mag.
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
 
-    local cos_i is v(dv:x, 0, dv:z):mag / v2.
+    local cos_i is zero_y(intercept_deltav):mag / v2.
     
     return sqrt(ve ^ 2 + v1 ^ 2 - 2 * ve * v1 * cos_i).
+}
+
+// TODO: Make local
+global function zero_y {
+    parameter v.
+
+    return v(v:x, 0, v:z).
 }
 
 // Calculate the delta-v required to convert a hyperbolic intercept orbit
@@ -86,7 +96,7 @@ global function equatorial_ejection_deltav {
 // Calculating the hyperbolic velocity (denoted "ve") is more fun and can be
 // determined by applying the vis-visa equation twice.
 // Our velocity "v2" at the edge of the SOI (radius denoted "r2") can be
-// closely approximated as the magnitude of the "dv2" vector.
+// closely approximated as the magnitude of the "intercept_deltav" vector.
 //
 // The vis-viva equation states that:
 // [Equation 1] v2 ^ 2 = mu * (2 / r2 - 1 / a)
@@ -106,14 +116,14 @@ global function equatorial_ejection_deltav {
 // Taking the square root of equation 5 then subtracting 'v1" gives the delta-v
 // required to capture into a ciruclar orbit.
 global function circular_insertion_deltav {
-    parameter body, altitude, dv.
+    parameter body, altitude, intercept_deltav.
 
     local mu is body:mu.
     local r1 is body:radius + altitude.
     local r2 is body:soiradius.
 
     local v1 is sqrt(mu / r1).
-    local v2 is dv:mag.
+    local v2 is intercept_deltav:mag.
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
 
     return ve - v1.
@@ -123,29 +133,31 @@ global function circular_insertion_deltav {
 // periapsis at "r1" and apoapsis at the edge of SOI. This is identical to the
 // previous function, except for the semi-major radius used when calculating "v1".
 global function elliptical_insertion_deltav {
-    parameter body, altitude, dv.
+    parameter body, altitude, intercept_deltav.
 
     local mu is body:mu.
     local r1 is body:radius + altitude.
     local r2 is body:soiradius.
 
     local v1 is sqrt(mu * (2 / r1 - 2 / (r1 + r2))).
-    local v2 is dv:mag.
+    local v2 is intercept_deltav:mag.
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
 
     return ve - v1.
 }
 
-// Vessels have no SOI or gravity so the delta-v required is exactly the transfer orbit delta-v.
+// Vessels have no SOI or gravity so the delta-v required is exactly the
+// transfer orbit delta-v.
 global function vessel_rendezvous_deltav {
-    parameter body, altitude, dv.
+    parameter body, altitude, intercept_deltav.
 
-    return dv:mag.
+    return intercept_deltav:mag.
 }
 
-// Calculates the delta-v required for a flyby, aerocapture or extreme lithobrake...
+// Calculates the delta-v required for a flyby, aerocapture
+// or extreme lithobrake...
 global function no_insertion_deltav {
-    parameter body, altitude, dv.
+    parameter body, altitude, intercept_deltav.
 
     return 0.
 }
