@@ -5,17 +5,26 @@ runoncepath("0:/rsvp/main.ks").
 // as finding transfers is computationally intensive.
 set config:ipu to 2000.
 
+// Cleanup any nodes from previous runs
+until not hasnode {
+    remove nextnode.
+    wait 0.
+}
+
 local options is lexicon("verbose", true).
+
+body_create_maneuver_node(kerbin, duna, options).
 
 // Planets outward journey
 //find_launch_window(kerbin, moho, options).
 //find_launch_window(kerbin, eve, options).
-find_launch_window(kerbin, duna, options).
+//find_launch_window(kerbin, duna, options).
 //find_launch_window(kerbin, jool, options).
 //find_launch_window(kerbin, eeloo, options).
 
 // Moons
 //find_launch_window(laythe, tylo, options).
+//find_launch_window(laythe, pol, options).
 
 // Return journey
 //find_launch_window(eeloo, moho, options).
@@ -23,12 +32,7 @@ find_launch_window(kerbin, duna, options).
 //vessel_rendezvous().
 
 local function vessel_rendezvous {
-    until not hasnode {
-        remove nextnode.
-        wait 0.
-    }
-
     local origin is vessel("Origin").
     local destination is vessel("Destination").
-    print create_maneuver_nodes(origin, destination, options).
+    print vessel_create_maneuver_nodes(origin, destination, options).
 }

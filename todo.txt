@@ -11,3 +11,13 @@
 [search.ks]
 * Planet intercept refinement
 * Extract formatted time?
+
+
+
+// Time to escape SOI
+//local n is sqrt(mu / a ^ 3).
+//local cos_theta is (a * (e ^ 2 - 1) - r2) / (e * r2).
+//local cosh_h is (cos_theta + e) / (1 + e * cos_theta).
+//local h is ln(cosh_h + sqrt(cosh_h ^ 2 - 1)).
+//local sinh_h is (constant:e ^ h - constant:e ^ (-h)) / 2.
+//local t is (e * sinh_h - h) / n.

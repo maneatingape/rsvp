@@ -73,7 +73,7 @@ global function find_launch_window {
     }
 
     // Initial orbit type always "equatorial" for now
-    local ejection_deltav is choose equatorial_ejection_deltav@ if is_body(origin) else vessel_rendezvous_deltav@.
+    local ejection_deltav is choose equatorial_ejection_deltav@ if is_body(origin) else vessel_ejection_deltav@.
 
     // Initial orbit periapsis
     local initial_orbit_altitude is 100000.
@@ -98,7 +98,7 @@ global function find_launch_window {
     }
 
     // Final orbit type
-    local insertion_deltav is choose circular_insertion_deltav@ if is_body(destination) else vessel_rendezvous_deltav@.
+    local insertion_deltav is choose circular_insertion_deltav@ if is_body(destination) else vessel_insertion_deltav@.
 
     if options:haskey("final_orbit_type") {
         if is_vessel(destination) {
@@ -161,8 +161,8 @@ global function find_launch_window {
         parameter flip_direction, departure_time, time_of_flight.
 
         local details is transfer_deltav(origin, destination, flip_direction, departure_time, departure_time + time_of_flight).
-        local ejection is ejection_deltav(origin, initial_orbit_altitude, details:s1 - details:v1).
-        local insertion is insertion_deltav(destination, final_orbit_pe, details:v2 - details:s2).
+        local ejection is ejection_deltav(origin, initial_orbit_altitude, details).
+        local insertion is insertion_deltav(destination, final_orbit_pe, details).
 
         return ejection + insertion.
     }
@@ -182,23 +182,63 @@ global function find_launch_window {
     result:add("success", true).
     result:add("departure", transfer:departure).
     result:add("arrival", transfer:arrival).
-    result:add("deltav", transfer:deltav).
-    result:add("dv1", details:s1 - details:v1).
-    result:add("dv2", details:v2 - details:s2).
+    result:add("total_deltav", transfer:total_deltav).
+    result:add("prograde", details:prograde).
+    result:add("radial", details:radial).
+    result:add("normal", details:normal).
+    result:add("dv1", details:dv1).
+    result:add("dv2", details:dv2).
     return result.
 }
 
-// WORK IN PROGRESS - only works when both origin and destination are vessels.
-// Applies coordinate descent algorithm in 3 dimensions (prograde, radial and normal)
-// to refine initial manuever node and get a closer intercept.
-global function create_maneuver_nodes {
+// WORK IN PROGRESS
+// Creates maneuver node at the correct location around the origin
+// planet in order to eject at the desired orientation.
+global function body_create_maneuver_node {
     parameter origin, destination, options is lexicon().
 
-    local transfer is find_launch_window(origin, destination, options).
-    if not transfer:success return transfer.
+    local details is find_launch_window(origin, destination, options).
+    if not details:success return details.
     if hasnode return failure("Existing maneuver nodes already exist.").
 
-    local maneuver is create_vessel_node(origin, transfer:departure, transfer:dv1).
+    function cost {
+        parameter v.
+        return vessel_ejection_deltav_from_origin(ship, details, v:x):mag.
+    }
+
+    local initial_position is v(details:departure, 0, 0).
+    local initial_cost is cost(initial_position).
+    local result is coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
+
+    local clock is result:position:x.
+    local ejection is vessel_ejection_deltav_from_origin(ship, details, clock).
+
+    // Ship prograde, normal and radial vectors
+    local it1 is velocityat(ship, clock):orbit:normalized.
+    local ir1 is (positionat(ship, clock) - ship:body:position):normalized.
+    local ih1 is vcrs(it1, ir1):normalized.
+
+    // Components of departure delta-v relative to origin direction.
+    local prograde is vdot(it1, ejection).
+    local radial is vdot(ir1, ejection).
+    local normal is vdot(ih1, ejection).
+
+    local maneuver is node(clock, radial, normal, prograde).
+    add maneuver.
+}
+
+// WORK IN PROGRESS
+// Only works when both origin and destination are vessels.
+// Applies coordinate descent algorithm in 3 dimensions (prograde, radial and normal)
+// to refine initial manuever node and get a closer intercept.
+global function vessel_create_maneuver_nodes {
+    parameter origin, destination, options is lexicon().
+
+    local details is find_launch_window(origin, destination, options).
+    if not details:success return details.
+    if hasnode return failure("Existing maneuver nodes already exist.").
+
+    local maneuver is node(details:departure, details:radial, details:normal, details:prograde).
     add maneuver.
 
     local function update_node {
@@ -211,35 +251,19 @@ global function create_maneuver_nodes {
     local function intercept_distance {
         parameter v.
         update_node(v).
-        return (positionat(origin, transfer:arrival) - positionat(destination, transfer:arrival)):mag.
+        return (positionat(origin, details:arrival) - positionat(destination, details:arrival)):mag.
     }
 
-    local position is v(maneuver:radialout, maneuver:normal, maneuver:prograde).
-    local details is refine_maneuver_node(intercept_distance@, position).
-    update_node(details:position).
+    local position is v(details:radial, details:normal, details:prograde).
+    local refine is refine_maneuver_node(intercept_distance@, position).
+    update_node(refine:position).
 
     local result is lexicon().
     result:add("success", true).
-    result:add("arrival", transfer:arrival).
-    result:add("approximate_deltav", transfer:deltav).
-    result:add("approximate_separation", details:minimum).
+    result:add("arrival", details:arrival).
+    result:add("arrival_deltav", details:dv2:mag).
+    result:add("approximate_separation", refine:minimum).
     return result.
-}
-
-local function create_vessel_node {
-    parameter vessel, node_time, dv.
-
-    // Unit vectors of ship prograde, radial and normal directions at departure time.
-    local it1 is velocityat(vessel, node_time):orbit:normalized.
-    local ir1 is (positionat(vessel, node_time) - vessel:body:position):normalized.
-    local ih1 is vcrs(it1, ir1):normalized.
-
-    // Components of transfer delta-v in each maneuver node direction
-    local prograde is vdot(it1, dv).
-    local radial is vdot(ir1, dv).
-    local normal is vdot(ih1, dv).
-
-    return node(node_time, radial, normal, prograde).
 }
 
 local function failure {

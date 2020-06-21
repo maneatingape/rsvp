@@ -19,12 +19,13 @@ global function iterated_local_search {
     // the final value in most cases.
     local y is max_time_of_flight * 0.5.
     local step_size is search_interval * 0.1.
+    local step_factor is 0.5.
 
     // Sneaky trick here. When comparing a scalar and a string, kOS converts the
     // scalar to a string then compares them lexicographically.
     // This means that *any* number will always be less than the string "max"
     // as "m" is a higher codepoint than the numeric digits 0-9.
-    local result is lexicon("deltav", "max").
+    local result is lexicon("total_deltav", "max").
     local invocations is 0.
 
     for x in range(earliest_departure, latest_departure, search_interval) {
@@ -57,7 +58,7 @@ global function iterated_local_search {
         }
 
         // Start a search from this location, updating "result" if "candidate" delta-v is lower.
-        local candidate is coordinate_descent_2d(cost@, v(x, y, 0), initial_deltav, step_size, step_threshold).
+        local candidate is coordinate_descent_2d(cost@, v(x, y, 0), initial_deltav, step_size, step_threshold, step_factor).
         local departure is candidate:position:x.
         local arrival is candidate:position:x + candidate:position:y.
         local deltav is candidate:minimum.
@@ -69,11 +70,11 @@ global function iterated_local_search {
             print "  Delta-v: " + round(deltav).
         }
 
-        if deltav < result:deltav {
+        if deltav < result:total_deltav {
             set result to lexicon().
             result:add("departure", departure).
             result:add("arrival", arrival).
-            result:add("deltav", deltav).
+            result:add("total_deltav", deltav).
             result:add("flip_direction", flip_direction).
         }
     }
@@ -83,7 +84,7 @@ global function iterated_local_search {
         print "Best Result".
         print "  Departure: " + seconds_to_kerbin_time(result:departure).
         print "  Arrival: " + seconds_to_kerbin_time(result:arrival).
-        print "  Delta-v: " + round(result:deltav).
+        print "  Delta-v: " + round(result:total_deltav).
     }
 
     return result.
@@ -94,8 +95,10 @@ global function refine_maneuver_node {
 
     local invocations is 0.
     local initial_cost is cost(position).
+
     local step_size is 1.
     local step_threshold is 0.001.
+    local step_factor is 0.9.
 
     local function cost {
         parameter v.
@@ -103,7 +106,7 @@ global function refine_maneuver_node {
         return intercept_distance(v).
     }
 
-    return coordinate_descent_3d(cost@, position, initial_cost, step_size, step_threshold).
+    return coordinate_descent_3d(cost@, position, initial_cost, step_size, step_threshold, step_factor).
 }
 
 // Coordinate descent is a variant of the hill climbing algorithm, where only
@@ -118,7 +121,7 @@ global function refine_maneuver_node {
 // (3) Continue in this direction until the cost increases
 // (4) Half the step size, terminating if below the threshold, then go to step (2)
 local function coordinate_descent {
-    parameter dimensions, cost, position, minimum, step_size, step_threshold.
+    parameter dimensions, cost, position, minimum, step_size, step_threshold, step_factor.
 
     local next_position is position.
     local direction is "none".
@@ -151,7 +154,7 @@ local function coordinate_descent {
         }
 
         if direction = "none" {
-            set step_size to step_size * 0.5.
+            set step_size to step_size * step_factor.
         }
         else {
             set position to next_position.
