@@ -14,6 +14,7 @@ until not hasnode {
 local options is lexicon("verbose", true).
 
 body_create_maneuver_node(kerbin, duna, options).
+//body_create_maneuver_node(laythe, tylo, options).
 
 // Planets outward journey
 //find_launch_window(kerbin, moho, options).

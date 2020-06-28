@@ -59,22 +59,22 @@ global function iterated_local_search {
 
         // Start a search from this location, updating "result" if "candidate" delta-v is lower.
         local candidate is coordinate_descent_2d(cost@, v(x, y, 0), initial_deltav, step_size, step_threshold, step_factor).
-        local departure is candidate:position:x.
-        local arrival is candidate:position:x + candidate:position:y.
-        local deltav is candidate:minimum.
+        local departure_time is candidate:position:x.
+        local arrival_time is candidate:position:x + candidate:position:y.
+        local total_deltav is candidate:minimum.
 
         if verbose {
             print "Search offset: " + seconds_to_kerbin_time(x).
-            print "  Departure: " + seconds_to_kerbin_time(departure).
-            print "  Arrival: " + seconds_to_kerbin_time(arrival).
-            print "  Delta-v: " + round(deltav).
+            print "  Departure: " + seconds_to_kerbin_time(departure_time).
+            print "  Arrival: " + seconds_to_kerbin_time(arrival_time).
+            print "  Delta-v: " + round(total_deltav).
         }
 
-        if deltav < result:total_deltav {
+        if total_deltav < result:total_deltav {
             set result to lexicon().
-            result:add("departure", departure).
-            result:add("arrival", arrival).
-            result:add("total_deltav", deltav).
+            result:add("departure_time", departure_time).
+            result:add("arrival_time", arrival_time).
+            result:add("total_deltav", total_deltav).
             result:add("flip_direction", flip_direction).
         }
     }
@@ -82,8 +82,8 @@ global function iterated_local_search {
     if verbose {
         print "Invocations: " + invocations.
         print "Best Result".
-        print "  Departure: " + seconds_to_kerbin_time(result:departure).
-        print "  Arrival: " + seconds_to_kerbin_time(result:arrival).
+        print "  Departure: " + seconds_to_kerbin_time(result:departure_time).
+        print "  Arrival: " + seconds_to_kerbin_time(result:arrival_time).
         print "  Delta-v: " + round(result:total_deltav).
     }
 

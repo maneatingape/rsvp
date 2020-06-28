@@ -176,12 +176,12 @@ global function find_launch_window {
     }
 
     local transfer is iterated_local_search(earliest_departure, latest_departure, search_interval, threshold, max_time_of_flight, total_deltav@, verbose).
-    local details is transfer_deltav(origin, destination, transfer:flip_direction, transfer:departure, transfer:arrival).
+    local details is transfer_deltav(origin, destination, transfer:flip_direction, transfer:departure_time, transfer:arrival_time).
 
     local result is lexicon().
     result:add("success", true).
-    result:add("departure", transfer:departure).
-    result:add("arrival", transfer:arrival).
+    result:add("departure_time", transfer:departure_time).
+    result:add("arrival_time", transfer:arrival_time).
     result:add("total_deltav", transfer:total_deltav).
     result:add("dv1", details:dv1).
     result:add("dv2", details:dv2).
@@ -199,23 +199,36 @@ global function body_create_maneuver_node {
     if not details:success return details.
     if hasnode return failure("Existing maneuver nodes already exist.").
 
+    // Using the raw magnitude of the delta-v as our cost function handles
+    // mutliple situtations and edge cases in one simple robust approach.
+    // For example prograde/retrograde ejection combined with
+    // clockwise/anti-clockwise orbit gives at least 4 valid possibilities
+    // that need to handled.
+    //
+    // Additionaly this method implicitly includes the necessary adjustment
+    // to the manuever node position to account for the radial component
+    // of the ejection velocity.
+    //
+    // Finally it can handle non-perfectly circular and inclined orbits.
+    //
+    // TODO: Re-calculate transfer details?
     function cost {
         parameter v.
         return vessel_ejection_deltav_from_origin(ship, details, v:x):mag.
     }
 
-    local initial_position is v(details:departure, 0, 0).
+    local initial_position is v(details:departure_time, 0, 0).
     local initial_cost is cost(initial_position).
     local result is coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
 
-    local epoch_time is result:position:x.
-    local ejection is vessel_ejection_deltav_from_origin(ship, details, epoch_time).
+    local refined_time is result:position:x.
+    local ejection_velocity is vessel_ejection_deltav_from_origin(ship, details, refined_time).
 
-    // Ship prograde, normal and radial vectors
-    local osv is orbital_state_vectors(ship, epoch_time).
-    local projection is orbital_vector_projection(osv, ejection).
+    // Ejection velocity projected onto ship prograde, normal and radial vectors.
+    local osv is orbital_state_vectors(ship, refined_time).
+    local projection is orbital_vector_projection(osv, ejection_velocity).
 
-    create_then_add_node(epoch_time, projection).
+    create_then_add_node(refined_time, projection).
 }
 
 // WORK IN PROGRESS
@@ -229,12 +242,12 @@ global function vessel_create_maneuver_nodes {
     if not details:success return details.
     if hasnode return failure("Existing maneuver nodes already exist.").
 
-    local maneuver is create_then_add_node(details:departure, details:projection).
+    local maneuver is create_then_add_node(details:departure_time, details:projection).
 
     function intercept_distance {
-        parameter v.
-        update_node(maneuver, v).
-        return (positionat(origin, details:arrival) - positionat(destination, details:arrival)):mag.
+        parameter new_position.
+        update_node(maneuver, new_position).
+        return (positionat(origin, details:arrival_time) - positionat(destination, details:arrival_time)):mag.
     }
 
     local refine is refine_maneuver_node(intercept_distance@, details:projection).
@@ -242,7 +255,7 @@ global function vessel_create_maneuver_nodes {
 
     local result is lexicon().
     result:add("success", true).
-    result:add("arrival", details:arrival).
+    result:add("arrival_time", details:arrival_time).
     result:add("arrival_deltav", details:dv2:mag).
     result:add("approximate_separation", refine:minimum).
     return result.

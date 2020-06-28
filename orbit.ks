@@ -1,40 +1,6 @@
 @lazyglobal off.
 runoncepath("0:/rsvp/lambert.ks").
 
-// TODO
-global function orbital_state_vectors {
-    parameter orbitable, epoch_time.
-
-    // To determine the position of a planet at a specific time "t" relative to
-    // its parent body using the "positionat" function, you must subtract the
-    // *current* position of the parent body, not the position of the parent
-    // body at time "t" as might be expected.
-    local position is positionat(orbitable, epoch_time) - orbitable:body:position.
-
-    // "velocityat" already returns orbital velocity relative to the parent
-    // body, so no further adjustment is needed.    
-    local velocity is velocityat(orbitable, epoch_time):orbit.
-
-    return lexicon("position", position, "velocity", velocity).
-}
-
-// TODO
-global function orbital_vector_projection {
-    parameter osv, velocity.
-
-    // Unit vectors in prograde, radial and normal directions.
-    local unit_prograde is osv:velocity:normalized.
-    local unit_radial is osv:position:normalized.
-    local unit_normal is vcrs(unit_prograde, unit_radial):normalized.
-
-    // Components of velocity parallel to respective unit vectors.
-    local prograde is vdot(unit_prograde, velocity).
-    local radial is vdot(unit_radial, velocity).
-    local normal is vdot(unit_normal, velocity).
-
-    return v(radial, normal, prograde).
-}
-
 // Calculates the delta-v needed to transfer between origin and destination
 // planets at the specified times.
 //
@@ -51,17 +17,17 @@ global function orbital_vector_projection {
 // departure [Scalar] Departure time in seconds from epoch
 // arrival [Scalar] Arrival time in seconds from epoch
 global function transfer_deltav {
-    parameter origin, destination, flip_direction, departure, arrival.
+    parameter origin, destination, flip_direction, departure_time, arrival_time.
 
-    local osv1 is orbital_state_vectors(origin, departure).
-    local osv2 is orbital_state_vectors(destination, arrival).
+    local osv1 is orbital_state_vectors(origin, departure_time).
+    local osv2 is orbital_state_vectors(destination, arrival_time).
 
     // Now that we know the positions of the planets at our departure and
     // arrival time, solve Lambert's problem to determine the velocity of the
     // transfer orbit that links the planets at both positions.
     local r1 is osv1:position.
     local r2 is osv2:position.
-    local time_of_flight is arrival - departure.
+    local time_of_flight is arrival_time - departure_time.
     local mu is origin:body:mu.
     local solution is lambert(r1, r2, time_of_flight, mu, flip_direction).
 
@@ -70,6 +36,44 @@ global function transfer_deltav {
     local projection is orbital_vector_projection(osv1, dv1).
 
     return lexicon("dv1", dv1, "dv2", dv2, "projection", projection).
+}
+
+// Returns the cartesian orbital state vectors of position and velocity
+// at any specified time in the present, past or future.
+global function orbital_state_vectors {
+    parameter orbitable, epoch_time.
+
+    // To determine the position of a planet at a specific time "t" relative to
+    // its parent body using the "positionat" function, you must subtract the
+    // *current* position of the parent body, not the position of the parent
+    // body at time "t" as might be expected.
+    local position is positionat(orbitable, epoch_time) - orbitable:body:position.
+
+    // "velocityat" already returns orbital velocity relative to the parent
+    // body, so no further adjustment is needed.    
+    local velocity is velocityat(orbitable, epoch_time):orbit.
+
+    return lexicon("position", position, "velocity", velocity).
+}
+
+// Returns the vector projection of a velocity vector onto the given orbital
+// state vector. This comes in useful as most vectors use KSP's raw coordinate
+// system, however maneuver node's prograde, radial and normal components are
+// relative to the vessel's velocity and position *at the time of the node*.
+global function orbital_vector_projection {
+    parameter osv, velocity.
+
+    // Unit vectors in prograde, radial and normal directions.
+    local unit_prograde is osv:velocity:normalized.
+    local unit_radial is osv:position:normalized.
+    local unit_normal is vcrs(unit_prograde, unit_radial):normalized.
+
+    // Components of velocity parallel to respective unit vectors.
+    local prograde is vdot(unit_prograde, velocity).
+    local radial is vdot(unit_radial, velocity).
+    local normal is vdot(unit_normal, velocity).
+
+    return v(radial, normal, prograde).
 }
 
 // Calculate the delta-v required to eject into a hyperbolic transfer orbit
@@ -132,10 +136,15 @@ global function vessel_ejection_deltav_from_origin {
     // SOI, so you can escape even if mathematically the orbit is not a hyperbola).
     local e is ve ^ 2 * r1 / mu - 1.
     local a is r1 / (1 - e).
-    // Cosine of the eccentric anomaly at a distance r2 from the focus
-    local cos_ea is (a - r2) / (e * a).
-    // Slope of the velocity at a distance r2 from the focus        
-    local m is cos_ea * sqrt((1 - e ^ 2) / (1 - cos_ea ^ 2)).
+    // Cosine of the eccentric anomaly at a distance r2 from the focus:
+    local cos_E is (a - r2) / (a * e).
+    // Negative slope of the velocity at a distance r2 from the focus:
+    // -dy = b * -cos(E)
+    //  dx = a * -sin(E)
+    // -dy / dx = (b / a) * cos(E) / sin (E)
+    // Replace (b / a) with sqrt(1 - e ^ 2)
+    // Replace sin(E) with sqrt(1 - cos(E)^2)
+    local m is cos_E * sqrt((1 - e ^ 2) / (1 - cos_E ^ 2)).
 
     // Now that we know the angle that the origin bends our escape trajectory,
     // we work backwards to determine the initial escape velocity vector.
@@ -143,7 +152,18 @@ global function vessel_ejection_deltav_from_origin {
     // "transfer_details:dv1", we first invert the rotation acquired during escape,
     // then scale by the appropriate factor and finally subtract the vessel's
     // current velocity to give the delta-v required.
+    //
+    // "slope_angle" is exactly 90 degrees in the case of a parabolic ejection
+    // (barely escaping, eccentricity is 1) and approaches 0 degrees as the
+    // hyperbolic excess velocity and eccentricity tends to infinity.
+    //
+    // Additionally for the special case in KSP where you can escape with an
+    // mathematically elliptical orbit (impossible in real life, however KSP
+    // "chops" off the top of an orbit once you exceed SOI radius)
+    // the angle is greater than 90 degrees. For example, a situation where this
+    // can occur is during a Laythe to Tylo transfer.
     local slope_angle is 90 - arctan(m).
+
     local inverse_rotation is angleaxis(slope_angle, normal).
     local ejection_velocity is (ve / v2) * transfer_details:dv1 * inverse_rotation.
 
