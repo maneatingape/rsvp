@@ -183,11 +183,9 @@ global function find_launch_window {
     result:add("departure", transfer:departure).
     result:add("arrival", transfer:arrival).
     result:add("total_deltav", transfer:total_deltav).
-    result:add("prograde", details:prograde).
-    result:add("radial", details:radial).
-    result:add("normal", details:normal).
     result:add("dv1", details:dv1).
     result:add("dv2", details:dv2).
+    result:add("projection", details:projection).
     return result.
 }
 
@@ -210,21 +208,14 @@ global function body_create_maneuver_node {
     local initial_cost is cost(initial_position).
     local result is coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
 
-    local clock is result:position:x.
-    local ejection is vessel_ejection_deltav_from_origin(ship, details, clock).
+    local epoch_time is result:position:x.
+    local ejection is vessel_ejection_deltav_from_origin(ship, details, epoch_time).
 
     // Ship prograde, normal and radial vectors
-    local it1 is velocityat(ship, clock):orbit:normalized.
-    local ir1 is (positionat(ship, clock) - ship:body:position):normalized.
-    local ih1 is vcrs(it1, ir1):normalized.
+    local osv is orbital_state_vectors(ship, epoch_time).
+    local projection is orbital_vector_projection(osv, ejection).
 
-    // Components of departure delta-v relative to origin direction.
-    local prograde is vdot(it1, ejection).
-    local radial is vdot(ir1, ejection).
-    local normal is vdot(ih1, ejection).
-
-    local maneuver is node(clock, radial, normal, prograde).
-    add maneuver.
+    create_then_add_node(epoch_time, projection).
 }
 
 // WORK IN PROGRESS
@@ -238,25 +229,16 @@ global function vessel_create_maneuver_nodes {
     if not details:success return details.
     if hasnode return failure("Existing maneuver nodes already exist.").
 
-    local maneuver is node(details:departure, details:radial, details:normal, details:prograde).
-    add maneuver.
+    local maneuver is create_then_add_node(details:departure, details:projection).
 
-    local function update_node {
+    function intercept_distance {
         parameter v.
-        set maneuver:radialout to v:x.
-        set maneuver:normal to v:y.
-        set maneuver:prograde to v:z.
-    }
-
-    local function intercept_distance {
-        parameter v.
-        update_node(v).
+        update_node(maneuver, v).
         return (positionat(origin, details:arrival) - positionat(destination, details:arrival)):mag.
     }
 
-    local position is v(details:radial, details:normal, details:prograde).
-    local refine is refine_maneuver_node(intercept_distance@, position).
-    update_node(refine:position).
+    local refine is refine_maneuver_node(intercept_distance@, details:projection).
+    update_node(maneuver, refine:position).
 
     local result is lexicon().
     result:add("success", true).
@@ -264,6 +246,23 @@ global function vessel_create_maneuver_nodes {
     result:add("arrival_deltav", details:dv2:mag).
     result:add("approximate_separation", refine:minimum).
     return result.
+}
+
+local function create_then_add_node {
+    parameter epoch_time, projection.
+
+    local maneuver is node(epoch_time, projection:x, projection:y, projection:z).
+    add maneuver.
+
+    return maneuver.
+}
+
+local function update_node {
+    parameter node, projection.
+
+    set node:radialout to projection:x.
+    set node:normal to projection:y.
+    set node:prograde to projection:z.
 }
 
 local function failure {

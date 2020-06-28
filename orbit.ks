@@ -1,8 +1,48 @@
 @lazyglobal off.
 runoncepath("0:/rsvp/lambert.ks").
 
+// TODO
+global function orbital_state_vectors {
+    parameter orbitable, epoch_time.
+
+    // To determine the position of a planet at a specific time "t" relative to
+    // its parent body using the "positionat" function, you must subtract the
+    // *current* position of the parent body, not the position of the parent
+    // body at time "t" as might be expected.
+    local position is positionat(orbitable, epoch_time) - orbitable:body:position.
+
+    // "velocityat" already returns orbital velocity relative to the parent
+    // body, so no further adjustment is needed.    
+    local velocity is velocityat(orbitable, epoch_time):orbit.
+
+    return lexicon("position", position, "velocity", velocity).
+}
+
+// TODO
+global function orbital_vector_projection {
+    parameter osv, velocity.
+
+    // Unit vectors in prograde, radial and normal directions.
+    local unit_prograde is osv:velocity:normalized.
+    local unit_radial is osv:position:normalized.
+    local unit_normal is vcrs(unit_prograde, unit_radial):normalized.
+
+    // Components of velocity parallel to respective unit vectors.
+    local prograde is vdot(unit_prograde, velocity).
+    local radial is vdot(unit_radial, velocity).
+    local normal is vdot(unit_normal, velocity).
+
+    return v(radial, normal, prograde).
+}
+
 // Calculates the delta-v needed to transfer between origin and destination
 // planets at the specified times.
+//
+// Simplifying assumption:
+// * The distance to the SOI edge from the center of the planet is small enough
+//   (relative to the interplanetary transfer distance) that we can assume the
+//   position at SOI edge is a close enough approximation to the position
+//   supplied to the Lambert solver.
 //
 // Parameters:
 // origin [Body] Departure planet that vessel will leave from.
@@ -13,67 +53,36 @@ runoncepath("0:/rsvp/lambert.ks").
 global function transfer_deltav {
     parameter origin, destination, flip_direction, departure, arrival.
 
-    local position_offset is origin:body:position.
-    local mu is origin:body:mu.
-
-    // To determine the position of a planet at a specific time "t" relative to
-    // its parent body using the "positionat" function, you must subtract the
-    // *current* position of the parent body, not the position of the parent
-    // body at time "t" as might be expected.
-    local r1 is positionat(origin, departure) - position_offset.
-    local r2 is positionat(destination, arrival) - position_offset.
+    local osv1 is orbital_state_vectors(origin, departure).
+    local osv2 is orbital_state_vectors(destination, arrival).
 
     // Now that we know the positions of the planets at our departure and
     // arrival time, solve Lambert's problem to determine the velocity of the
     // transfer orbit that links the planets at both positions.
-    local solution is lambert(r1, r2, arrival - departure, mu, flip_direction).
+    local r1 is osv1:position.
+    local r2 is osv2:position.
+    local time_of_flight is arrival - departure.
+    local mu is origin:body:mu.
+    local solution is lambert(r1, r2, time_of_flight, mu, flip_direction).
 
-    // "velocityat" already returns orbital velocity relative to the parent
-    // body, so no further adjustment is needed.
-    local v1 is velocityat(origin, departure):orbit.
-    local v2 is velocityat(destination, arrival):orbit.
-    local dv1 is solution:v1 - v1.
-    local dv2 is v2 - solution:v2.
+    local dv1 is solution:v1 - osv1:velocity.
+    local dv2 is osv2:velocity - solution:v2.
+    local projection is orbital_vector_projection(osv1, dv1).
 
-    // Unit vectors of origin prograde, radial and normal directions.
-    local origin_prograde is v1:normalized.
-    local origin_radial is r1:normalized.
-    local origin_normal is vcrs(origin_prograde, origin_radial):normalized.
-
-    // Components of departure delta-v relative to origin direction.
-    local prograde is vdot(origin_prograde, dv1).
-    local radial is vdot(origin_radial, dv1).
-    local normal is vdot(origin_normal, dv1).
-
-    return lexicon(
-        "prograde", prograde,
-        "radial", radial,
-        "normal", normal,
-        "dv1", dv1,
-        "dv2", dv2
-    ).
+    return lexicon("dv1", dv1, "dv2", dv2, "projection", projection).
 }
 
 // Calculate the delta-v required to eject into a hyperbolic transfer orbit
 // at the correct inclination from the desired radius "r1".
-// Simplifying assumptions:
+//
+// Simplifying assumption:
 // * Vessel is currently in a perfectly circular equatorial orbit at radius "r1"
 //   and velocity "v1" at 0 degrees inclination.
-// * The distance to the SOI edge from the center of the planet is small enough
-//   (relative to the interplanetary transfer distance) that we can assume the
-//   position at SOI edge is a close enough approximation to the position
-//   supplied to the Lambert solver.
-//
-// In KSP's coordinate system, the positive y axis sticks straight up from
-// Kerbol's north pole. Therefore the desired angle "i" between the
-// flat circular orbit and the inclined ejection orbit is the angle between
-// the original transfer velocity vector and the same vector with the
-// y coordinate zeroed out.
 //
 // Our required delta-v, "v1" and 've" form a triangle with angle "i" between
 // sides 'v1" and "ve'. The length of the 3rd side is the magnitude of our required
 // delta-v and can be determined using the cosine rule. We calculate the cosine
-// directly from the magnitudes of "v2" and the adjusted v2 with zero y component.
+// directly from the magnitudes of "v2" and its normal component.
 //
 // The "body_insertion_deltav" function comment contains details on
 // the formulas used to calculate "v1" and "ve".
@@ -87,10 +96,10 @@ global function equatorial_ejection_deltav {
     local v1 is sqrt(mu / r1).
     local v2 is transfer_details:dv1:mag.
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
-
-    local hypot is sqrt(transfer_details:prograde ^ 2 + transfer_details:radial ^ 2).
-    local normal_cos is hypot / v2.
-    local ejection_deltav is sqrt(ve ^ 2 + v1 ^ 2 - 2 * ve * v1 * normal_cos).
+    
+    local sin_i is transfer_details:projection:y / v2.
+    local cos_i is sqrt(1 - sin_i ^ 2).
+    local ejection_deltav is sqrt(ve ^ 2 + v1 ^ 2 - 2 * ve * v1 * cos_i).
 
     return ejection_deltav.
 }
@@ -103,11 +112,11 @@ global function equatorial_ejection_deltav {
 // * The gravity of the origin bends our trajectory as we escape, so that the
 //   initial velocity vector must be adjusted to compensate.
 global function vessel_ejection_deltav_from_origin {
-    parameter vessel, transfer_details, clock.
+    parameter vessel, transfer_details, epoch_time.
 
     local origin is vessel:body.
-    local velocity is velocityat(vessel, clock):orbit.
-    local position is positionat(vessel, clock) - origin:position.
+    local velocity is velocityat(vessel, epoch_time):orbit.
+    local position is positionat(vessel, epoch_time) - origin:position.
     local normal is vcrs(velocity, position).
 
     local mu is origin:mu.
@@ -136,9 +145,9 @@ global function vessel_ejection_deltav_from_origin {
     // current velocity to give the delta-v required.
     local slope_angle is 90 - arctan(m).
     local inverse_rotation is angleaxis(slope_angle, normal).
-    local ejection is (ve / v2) * transfer_details:dv1 * inverse_rotation.
+    local ejection_velocity is (ve / v2) * transfer_details:dv1 * inverse_rotation.
 
-    return ejection - velocity.
+    return ejection_velocity - velocity.
 }
 
 // Calculate the delta-v required to convert a hyperbolic intercept orbit
