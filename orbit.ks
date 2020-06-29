@@ -33,9 +33,8 @@ global function transfer_deltav {
 
     local dv1 is solution:v1 - osv1:velocity.
     local dv2 is osv2:velocity - solution:v2.
-    local projection is orbital_vector_projection(osv1, dv1).
 
-    return lexicon("dv1", dv1, "dv2", dv2, "projection", projection).
+    return lexicon("dv1", dv1, "dv2", dv2, "osv1", osv1).
 }
 
 // Returns the cartesian orbital state vectors of position and velocity
@@ -60,18 +59,21 @@ global function orbital_state_vectors {
 // state vector. This comes in useful as most vectors use KSP's raw coordinate
 // system, however maneuver node's prograde, radial and normal components are
 // relative to the vessel's velocity and position *at the time of the node*.
-global function orbital_vector_projection {
+global function maneuver_node_vector_projection {
     parameter osv, velocity.
 
-    // Unit vectors in prograde, radial and normal directions.
+    // Unit vectors in vessel prograde, radial and normal directions.
     local unit_prograde is osv:velocity:normalized.
-    local unit_radial is osv:position:normalized.
-    local unit_normal is vcrs(unit_prograde, unit_radial):normalized.
+    local unit_normal is vcrs(osv:velocity, osv:position):normalized.
+    // KSP quirk: Manuever node "radial" is not the usual meaning of radial
+    // in the sense of a vector from the center of the parent body towards
+    // the ship, but rather a vector orthogonal to prograde and normal vectors.
+    local unit_radial is vcrs(unit_normal, unit_prograde).
 
     // Components of velocity parallel to respective unit vectors.
-    local prograde is vdot(unit_prograde, velocity).
     local radial is vdot(unit_radial, velocity).
     local normal is vdot(unit_normal, velocity).
+    local prograde is vdot(unit_prograde, velocity).
 
     return v(radial, normal, prograde).
 }
@@ -101,7 +103,11 @@ global function equatorial_ejection_deltav {
     local v2 is transfer_details:dv1:mag.
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
     
-    local sin_i is transfer_details:projection:y / v2.
+    local osv1 is transfer_details:osv1.
+    local unit_normal is vcrs(osv1:velocity, osv1:position):normalized.
+    local normal_component is vdot(unit_normal, transfer_details:dv1).
+
+    local sin_i is normal_component / v2.
     local cos_i is sqrt(1 - sin_i ^ 2).
     local ejection_deltav is sqrt(ve ^ 2 + v1 ^ 2 - 2 * ve * v1 * cos_i).
 
@@ -116,18 +122,13 @@ global function equatorial_ejection_deltav {
 // * The gravity of the origin bends our trajectory as we escape, so that the
 //   initial velocity vector must be adjusted to compensate.
 global function vessel_ejection_deltav_from_origin {
-    parameter vessel, transfer_details, epoch_time.
-
-    local origin is vessel:body.
-    local velocity is velocityat(vessel, epoch_time):orbit.
-    local position is positionat(vessel, epoch_time) - origin:position.
-    local normal is vcrs(velocity, position).
+    parameter origin, osv, transfer_details.
 
     local mu is origin:mu.
-    local r1 is position:mag.
+    local r1 is osv:position:mag.
     local r2 is origin:soiradius.
 
-    local v1 is velocity:mag.
+    local v1 is osv:velocity:mag.
     local v2 is transfer_details:dv1:mag.
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
 
@@ -163,11 +164,11 @@ global function vessel_ejection_deltav_from_origin {
     // the angle is greater than 90 degrees. For example, a situation where this
     // can occur is during a Laythe to Tylo transfer.
     local slope_angle is 90 - arctan(m).
-
-    local inverse_rotation is angleaxis(slope_angle, normal).
+    local ship_normal is vcrs(osv:velocity, osv:position).
+    local inverse_rotation is angleaxis(slope_angle, ship_normal).
     local ejection_velocity is (ve / v2) * transfer_details:dv1 * inverse_rotation.
 
-    return ejection_velocity - velocity.
+    return ejection_velocity - osv:velocity.
 }
 
 // Calculate the delta-v required to convert a hyperbolic intercept orbit
@@ -204,10 +205,10 @@ global function vessel_ejection_deltav_from_origin {
 //
 // Taking the square root of equation 5 then subtracting 'v1" gives the delta-v
 // required to capture into the desired orbit.
-global circular_insertion_deltav is body_insertion_deltav@:bind(true).
-global elliptical_insertion_deltav is body_insertion_deltav@:bind(false).
+global circular_insertion_deltav is orbit_insertion_deltav@:bind(true).
+global elliptical_insertion_deltav is orbit_insertion_deltav@:bind(false).
 
-local function body_insertion_deltav {
+local function orbit_insertion_deltav {
     parameter is_circular, destination, altitude, transfer_details.
 
     local mu is destination:mu.

@@ -90,27 +90,8 @@ global function iterated_local_search {
     return result.
 }
 
-global function refine_maneuver_node {
-    parameter intercept_distance, position.
-
-    local invocations is 0.
-    local initial_cost is cost(position).
-
-    local step_size is 1.
-    local step_threshold is 0.001.
-    local step_factor is 0.9.
-
-    local function cost {
-        parameter v.
-        set invocations to invocations + 1.
-        return intercept_distance(v).
-    }
-
-    return coordinate_descent_3d(cost@, position, initial_cost, step_size, step_threshold, step_factor).
-}
-
 // Coordinate descent is a variant of the hill climbing algorithm, where only
-// one dimension (x or y) is minimized at a time. This algorithm implements this
+// one dimension (x, y or z) is minimized at a time. This algorithm implements this
 // with a simple binary search approach. This converges reasonable quickly wihout
 // too many costly Lambert solver invocations.
 //
@@ -119,7 +100,8 @@ global function refine_maneuver_node {
 // (2) Determine the lowest cost at a point "step_size" distance away, looking
 //     in both positive and negative directions on the x, y and z axes.
 // (3) Continue in this direction until the cost increases
-// (4) Half the step size, terminating if below the threshold, then go to step (2)
+// (4) Reduce the step size by the step factor, terminating if below the
+//     threshold, then go to step (2)
 local function coordinate_descent {
     parameter dimensions, cost, position, minimum, step_size, step_threshold, step_factor.
 

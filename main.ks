@@ -185,7 +185,7 @@ global function find_launch_window {
     result:add("total_deltav", transfer:total_deltav).
     result:add("dv1", details:dv1).
     result:add("dv2", details:dv2).
-    result:add("projection", details:projection).
+    result:add("osv1", details:osv1).
     return result.
 }
 
@@ -214,7 +214,8 @@ global function body_create_maneuver_node {
     // TODO: Re-calculate transfer details?
     function cost {
         parameter v.
-        return vessel_ejection_deltav_from_origin(ship, details, v:x):mag.
+        local osv is orbital_state_vectors(ship, v:x).
+        return vessel_ejection_deltav_from_origin(origin, osv, details):mag.
     }
 
     local initial_position is v(details:departure_time, 0, 0).
@@ -222,11 +223,11 @@ global function body_create_maneuver_node {
     local result is coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
 
     local refined_time is result:position:x.
-    local ejection_velocity is vessel_ejection_deltav_from_origin(ship, details, refined_time).
+    local osv is orbital_state_vectors(ship, refined_time).
+    local ejection_velocity is vessel_ejection_deltav_from_origin(origin, osv, details).
 
     // Ejection velocity projected onto ship prograde, normal and radial vectors.
-    local osv is orbital_state_vectors(ship, refined_time).
-    local projection is orbital_vector_projection(osv, ejection_velocity).
+    local projection is maneuver_node_vector_projection(osv, ejection_velocity).
 
     create_then_add_node(refined_time, projection).
 }
@@ -242,22 +243,16 @@ global function vessel_create_maneuver_nodes {
     if not details:success return details.
     if hasnode return failure("Existing maneuver nodes already exist.").
 
-    local maneuver is create_then_add_node(details:departure_time, details:projection).
-
-    function intercept_distance {
-        parameter new_position.
-        update_node(maneuver, new_position).
-        return (positionat(origin, details:arrival_time) - positionat(destination, details:arrival_time)):mag.
-    }
-
-    local refine is refine_maneuver_node(intercept_distance@, details:projection).
-    update_node(maneuver, refine:position).
+    local osv is orbital_state_vectors(origin, details:departure_time).
+    local projection is maneuver_node_vector_projection(osv, details:dv1).
+    local maneuver is create_then_add_node(details:departure_time, projection).
+    local separation is vessel_distance(origin, destination, details:arrival_time).
 
     local result is lexicon().
     result:add("success", true).
     result:add("arrival_time", details:arrival_time).
     result:add("arrival_deltav", details:dv2:mag).
-    result:add("approximate_separation", refine:minimum).
+    result:add("arrival_separation", separation).
     return result.
 }
 
@@ -276,6 +271,26 @@ local function update_node {
     set node:radialout to projection:x.
     set node:normal to projection:y.
     set node:prograde to projection:z.
+}
+
+local function body_distance {
+    parameter destination, maneuver.
+
+    local patch is maneuver:orbit.
+
+    until not patch:hasnextpatch {
+        set patch to patch:nextpatch.
+
+        if patch:body = destination {
+            return abs(100000 - patch:periapsis).
+        }
+    }
+}
+
+local function vessel_distance {
+    parameter origin, destination, epoch_time.
+
+    return (positionat(origin, epoch_time) - positionat(destination, epoch_time)):mag.
 }
 
 local function failure {
