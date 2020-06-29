@@ -229,7 +229,24 @@ global function body_create_maneuver_node {
     // Ejection velocity projected onto ship prograde, normal and radial vectors.
     local projection is maneuver_node_vector_projection(osv, ejection_velocity).
 
-    create_then_add_node(refined_time, projection).
+    local maneuver is create_then_add_node(refined_time, projection).
+    body_refine_maneuver_node_time(maneuver, refined_time, destination).
+}
+
+local function body_refine_maneuver_node_time {
+    parameter maneuver, epoch_time, destination.
+
+    function cost {
+        parameter new_time.
+        update_node_time(maneuver, new_time:x).
+        return body_distance(destination, maneuver).
+    }
+
+    local initial_position is v(epoch_time, 0, 0).
+    local initial_cost is cost(initial_position).
+    local result is coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
+
+    update_node_time(maneuver, result:position:x).
 }
 
 // WORK IN PROGRESS
@@ -265,7 +282,13 @@ local function create_then_add_node {
     return maneuver.
 }
 
-local function update_node {
+local function update_node_time {
+    parameter maneuver, epoch_time.
+
+    set maneuver:eta to epoch_time - time():seconds.
+}
+
+local function update_node_deltav {
     parameter node, projection.
 
     set node:radialout to projection:x.
@@ -285,6 +308,8 @@ local function body_distance {
             return abs(100000 - patch:periapsis).
         }
     }
+
+    return "max".
 }
 
 local function vessel_distance {

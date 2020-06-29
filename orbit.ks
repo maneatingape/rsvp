@@ -22,15 +22,15 @@ global function transfer_deltav {
     local osv1 is orbital_state_vectors(origin, departure_time).
     local osv2 is orbital_state_vectors(destination, arrival_time).
 
-    // Now that we know the positions of the planets at our departure and
-    // arrival time, solve Lambert's problem to determine the velocity of the
-    // transfer orbit that links the planets at both positions.
     local r1 is osv1:position.
     local r2 is osv2:position.
     local time_of_flight is arrival_time - departure_time.
     local mu is origin:body:mu.
-    local solution is lambert(r1, r2, time_of_flight, mu, flip_direction).
 
+    // Now that we know the positions of the planets at our departure and
+    // arrival time, solve Lambert's problem to determine the velocity of the
+    // transfer orbit that links the planets at both positions.
+    local solution is lambert(r1, r2, time_of_flight, mu, flip_direction).
     local dv1 is solution:v1 - osv1:velocity.
     local dv2 is osv2:velocity - solution:v2.
 
@@ -47,7 +47,6 @@ global function orbital_state_vectors {
     // *current* position of the parent body, not the position of the parent
     // body at time "t" as might be expected.
     local position is positionat(orbitable, epoch_time) - orbitable:body:position.
-
     // "velocityat" already returns orbital velocity relative to the parent
     // body, so no further adjustment is needed.    
     local velocity is velocityat(orbitable, epoch_time):orbit.
