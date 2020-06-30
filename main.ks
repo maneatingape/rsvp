@@ -258,6 +258,14 @@ global function vessel_create_maneuver_nodes {
     if is_body(destination) {
         refine_maneuver_node_time(destination, maneuver, final_orbit_pe, departure_time).
         vessel_refine_maneuver_node_deltav(destination, maneuver, final_orbit_pe, initial_deltav).
+
+    }
+
+    // Create second node
+    {
+        local arrival_time is time_to_periapsis(destination, maneuver).
+        local deltav is circular_insertion_deltav(destination, final_orbit_pe, details).
+        create_then_add_node(arrival_time, v(0, 0, -deltav)).
     }
 
     local result is lexicon().
@@ -349,6 +357,24 @@ local function distance_to_periapsis {
     }
 
     return "max".
+}
+
+local function time_to_periapsis {
+    parameter destination, maneuver.
+
+    local orbit is maneuver:orbit.
+
+    until not orbit:hasnextpatch {
+        local start is orbit:nextpatcheta.        
+        set orbit to orbit:nextpatch.
+        local end is orbit:nextpatcheta.
+        
+        if orbit:body = destination {        
+            return time:seconds() + (start + end) / 2.
+        }
+    }
+    
+    return "max".    
 }
 
 local function failure {

@@ -9,7 +9,7 @@ This library enables players to make automated low delta-v transfers between two
 
 * Integrates with your kOS scripts, supporting interplanetary travel.
 * Adapts to planetary packs such as [Outer Planets Mods](https://forum.kerbalspaceprogram.com/index.php?/topic/184789-131-18x-outer-planets-mod-v226-4th-feb-2020/), [RSS](https://github.com/KSP-RO/RealSolarSystem) and [JNSQ](https://github.com/Galileo88/JNSQ).
-* Supports rendezvouses between vessel, planets, asteroids and comets e.g. docking, rescue missions or supply runs
+* Supports rendezvous between vessel, planets, asteroids and comets e.g. docking, rescue missions or supply runs
 
 ## Quickstart
 
