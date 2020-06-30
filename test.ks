@@ -35,5 +35,7 @@ body_create_maneuver_node(kerbin, duna, options).
 local function vessel_rendezvous {
     local origin is vessel("Origin").
     local destination is vessel("Destination").
+    //local destination is vessel("Ast. BJJ-810").
+
     print vessel_create_maneuver_nodes(origin, destination, options).
 }
