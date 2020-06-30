@@ -183,6 +183,7 @@ global function find_launch_window {
     result:add("departure_time", transfer:departure_time).
     result:add("arrival_time", transfer:arrival_time).
     result:add("total_deltav", transfer:total_deltav).
+    result:add("final_orbit_pe", final_orbit_pe).
     result:add("dv1", details:dv1).
     result:add("dv2", details:dv2).
     result:add("osv1", details:osv1).
@@ -230,29 +231,11 @@ global function body_create_maneuver_node {
     local projection is maneuver_node_vector_projection(osv, ejection_velocity).
 
     local maneuver is create_then_add_node(refined_time, projection).
-    body_refine_maneuver_node_time(maneuver, refined_time, destination).
-}
-
-local function body_refine_maneuver_node_time {
-    parameter maneuver, epoch_time, destination.
-
-    function cost {
-        parameter new_time.
-        update_node_time(maneuver, new_time:x).
-        return body_distance(destination, maneuver).
-    }
-
-    local initial_position is v(epoch_time, 0, 0).
-    local initial_cost is cost(initial_position).
-    local result is coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
-
-    update_node_time(maneuver, result:position:x).
+    refine_maneuver_node_time(destination, maneuver, details:final_orbit_pe, refined_time).
 }
 
 // WORK IN PROGRESS
 // Only works when both origin and destination are vessels.
-// Applies coordinate descent algorithm in 3 dimensions (prograde, radial and normal)
-// to refine initial manuever node and get a closer intercept.
 global function vessel_create_maneuver_nodes {
     parameter origin, destination, options is lexicon().
 
@@ -260,17 +243,61 @@ global function vessel_create_maneuver_nodes {
     if not details:success return details.
     if hasnode return failure("Existing maneuver nodes already exist.").
 
-    local osv is orbital_state_vectors(origin, details:departure_time).
-    local projection is maneuver_node_vector_projection(osv, details:dv1).
-    local maneuver is create_then_add_node(details:departure_time, projection).
-    local separation is vessel_distance(origin, destination, details:arrival_time).
+    local departure_time is details:departure_time.
+    local final_orbit_pe is details:final_orbit_pe.
+
+    local osv is orbital_state_vectors(origin, departure_time).
+    local initial_deltav is maneuver_node_vector_projection(osv, details:dv1).
+    local maneuver is create_then_add_node(departure_time, initial_deltav).
+
+    // If the destination is a vessel (including asteroids or comets) then our
+    // intercept is already accurate enough and maneuver refinement has no benefit.
+    // For planets, our intercept is usually *too* accurate that it hits the planet
+    // dead center, which is not usually what you want. So we tweak the intercept
+    // in order to approximate the desired periapsis in a prograde direction.
+    if is_body(destination) {
+        refine_maneuver_node_time(destination, maneuver, final_orbit_pe, departure_time).
+        vessel_refine_maneuver_node_deltav(destination, maneuver, final_orbit_pe, initial_deltav).
+    }
 
     local result is lexicon().
     result:add("success", true).
-    result:add("arrival_time", details:arrival_time).
-    result:add("arrival_deltav", details:dv2:mag).
-    result:add("arrival_separation", separation).
     return result.
+}
+
+// Applies coordinate descent algorithm in 1 dimension (time)
+// to refine initial manuever node and get a closer intercept.
+local function refine_maneuver_node_time {
+    parameter destination, maneuver, final_orbit_pe, departure_time.
+
+    function cost {
+        parameter new_time.
+        update_node_time(maneuver, new_time:x).
+        return distance_to_periapsis(destination, maneuver, final_orbit_pe).
+    }
+
+    local initial_position is v(departure_time, 0, 0).
+    local initial_cost is cost(initial_position).
+    local result is coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
+
+    update_node_time(maneuver, result:position:x).
+}
+
+// Applies coordinate descent algorithm in 3 dimensions (prograde, radial and normal)
+// to refine initial manuever node and get a closer intercept.
+local function vessel_refine_maneuver_node_deltav {
+    parameter destination, maneuver, final_orbit_pe, initial_deltav.
+
+    local function cost {
+        parameter new_deltav.
+        update_node_deltav(maneuver, new_deltav).
+        return distance_to_periapsis(destination, maneuver, final_orbit_pe).
+    }
+    
+    local initial_cost is cost(initial_deltav).
+    local result is coordinate_descent_3d(cost@, initial_deltav, initial_cost, 1, 0.001, 0.5).
+
+    update_node_deltav(maneuver, result:position).
 }
 
 local function create_then_add_node {
@@ -286,6 +313,9 @@ local function update_node_time {
     parameter maneuver, epoch_time.
 
     set maneuver:eta to epoch_time - time():seconds.
+
+    // Waiting until next physics tick "animates" the refinement steps
+    wait 0.
 }
 
 local function update_node_deltav {
@@ -294,28 +324,31 @@ local function update_node_deltav {
     set node:radialout to projection:x.
     set node:normal to projection:y.
     set node:prograde to projection:z.
+
+    // Waiting until next physics tick "animates" the refinement steps
+    wait 0.
 }
 
-local function body_distance {
-    parameter destination, maneuver.
+local function distance_to_periapsis {
+    parameter destination, maneuver, final_orbit_pe.
 
-    local patch is maneuver:orbit.
+    local orbit is maneuver:orbit.
 
-    until not patch:hasnextpatch {
-        set patch to patch:nextpatch.
+    until not orbit:hasnextpatch {
+        set orbit to orbit:nextpatch.
 
-        if patch:body = destination {
-            return abs(100000 - patch:periapsis).
+        if orbit:body = destination {
+            // Make sure orbit is prograde (even if only barely)
+            // Inclination over 90 indicates a retrograde orbit.
+            local sign is choose 1 if orbit:inclination < 90 else -1.
+            local altitude is orbit:body:radius + orbit:periapsis.
+            local desired is orbit:body:radius + final_orbit_pe.
+
+            return abs(sign * altitude - desired).
         }
     }
 
     return "max".
-}
-
-local function vessel_distance {
-    parameter origin, destination, epoch_time.
-
-    return (positionat(origin, epoch_time) - positionat(destination, epoch_time)):mag.
 }
 
 local function failure {
