@@ -4,6 +4,7 @@ runoncepath("0:/rsvp/main.ks").
 // Default value is 250. Overclocking CPU speed to maximum is recommended
 // as finding transfers is computationally intensive.
 set config:ipu to 2000.
+//set config:stat to true.
 
 // Cleanup any nodes from previous runs
 until not hasnode {
@@ -11,15 +12,19 @@ until not hasnode {
     wait 0.
 }
 
-local options is lexicon("verbose", true).
+local options is lexicon(
+	"verbose", true
+	//"search_duration", 200 * 21600,
+	//"create_maneuver_nodes", "first"
+).
 
-body_create_maneuver_node(kerbin, duna, options).
+//body_create_maneuver_node(kerbin, duna, options).
 //body_create_maneuver_node(laythe, tylo, options).
 
 // Planets outward journey
 //find_launch_window(kerbin, moho, options).
 //find_launch_window(kerbin, eve, options).
-//find_launch_window(kerbin, duna, options).
+find_launch_window(kerbin, duna, options).
 //find_launch_window(kerbin, jool, options).
 //find_launch_window(kerbin, eeloo, options).
 
@@ -37,5 +42,7 @@ local function vessel_rendezvous {
     local destination is vessel("Destination").
     //local destination is vessel("Ast. BJJ-810").
 
-    print vessel_create_maneuver_nodes(origin, destination, options).
+    vessel_create_maneuver_nodes(origin, destination, options).
 }
+
+//log profileresult() to "profile_results.csv".

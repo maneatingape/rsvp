@@ -2,17 +2,16 @@
 * Unit tests?
 * Create "examples.ks"
 * Run profiler?
+* Github Actions for release?
+* Namespace all functions and avoid global pollution?
 
 [main.ks]
-* Impatience factor?
-* Reject unknown options
-* Function per option & multiple error handling?
-
-[search.ks]
 * Planet intercept refinement
-* Extract formatted time?
 
-
+[validate.ks]
+* Impatience factor?
+* Extract search_interval to settings
+* Extract search step size, threshold and factor to settings
 
 // Time to escape SOI
 //local n is sqrt(mu / a ^ 3).

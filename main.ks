@@ -1,189 +1,52 @@
 @lazyglobal off.
-runoncepath("0:/rsvp/orbit.ks").
-runoncepath("0:/rsvp/search.ks").
+
+parameter base_path is "0:/rsvp".
+
+import("orbit.ks").
+import("search.ks").
+import("validate.ks").
+
+global function import {
+    parameter filename.
+
+    runoncepath(base_path + "/" + filename).
+}
 
 global function find_launch_window {
     parameter origin, destination, options is lexicon().
 
-    if not (is_body(origin) or is_vessel(origin)) {
-        return failure("'origin' is not expected type Body or Vessel").
-    }
-    if not (is_body(destination) or is_vessel(destination)) {
-        return failure("'destination' is not expected type Body or Vessel").
-    }
-    if not is_lexicon(options) {
-        return failure("'options' is not expected type Lexicon").
-    }
-    if origin = destination {
-        return failure("'origin' and 'destination' must be different").
-    }
-    if origin:body <> destination:body {
-        return failure("'origin' and 'destination' are not orbiting a direct common parent body").
-    }
+    local result is validate_parameters(origin, destination, options).
+    if not result:success return result.
 
-    // Departure time
-    local earliest_departure is time():seconds.
-
-    if options:haskey("earliest_departure") {
-        if is_scalar(options:earliest_departure) {
-            set earliest_departure to options:earliest_departure.
-        }
-        else if is_timespan(options:earliest_departure) {
-            set earliest_departure to options:earliest_departure:seconds.
-        }
-        else {
-            return failure("'earliest_departure' is not expected type Scalar or TimeSpan").
-        }
-
-        if earliest_departure < 0 {
-            return failure("'earliest_departure' must be greater than or equal to zero").
-        }
-    }
-
-    // Search duration
-    local search_duration is max(max_period(origin, destination), synodic_period(origin, destination)).
-
-    if options:haskey("search_duration") {
-        if is_scalar(options:search_duration) {
-            set search_duration to options:search_duration.
-        }
-        else {
-            return failure("'search_duration' is not expected type Scalar").
-        }
-
-        if search_duration <= 0 {
-            return failure("'search_duration' must be greater than zero").
-        }
-    }
-
-    // Maximum time of flight
-    local max_time_of_flight is ideal_hohmann_transfer_period(origin, destination).
-
-    if options:haskey("max_time_of_flight") {
-        if is_scalar(options:max_time_of_flight) {
-            set max_time_of_flight to options:max_time_of_flight.
-        }
-        else {
-            return failure("'max_time_of_flight' is not expected type Scalar").
-        }
-
-        if max_time_of_flight <= 0 {
-            return failure("'max_time_of_flight' must be greater than zero").
-        }
-    }
-
-    // Initial orbit type always "equatorial" for now
-    local ejection_deltav is choose equatorial_ejection_deltav@ if is_body(origin) else vessel_ejection_deltav@.
-
-    // Initial orbit periapsis
-    local initial_orbit_altitude is 100000.
-
-    if options:haskey("initial_orbit_altitude") {
-        if is_vessel(origin) {
-            return failure("'initial_orbit_altitude' is not applicable to Vessel").
-        }
-        else if is_scalar(options:initial_orbit_altitude) {
-            set initial_orbit_altitude to options:initial_orbit_altitude.
-        }
-        else if options:initial_orbit_altitude = "min" {
-            set initial_orbit_altitude to choose origin:atm:height + 10000 if origin:atm:exists else 10000.
-        }
-        else {
-            return failure("'initial_orbit_altitude' is not expected type Scalar or special value 'min'").
-        }
-
-        if initial_orbit_altitude < 0 {
-            return failure("'initial_orbit_altitude' must be greater than or equal to zero").
-        }
-    }
-
-    // Final orbit type
-    local insertion_deltav is choose circular_insertion_deltav@ if is_body(destination) else vessel_insertion_deltav@.
-
-    if options:haskey("final_orbit_type") {
-        if is_vessel(destination) {
-            return failure("'final_orbit_type' is not applicable to Vessel").
-        }
-        else if option:final_orbit_type = "none" {
-            set insertion_deltav to no_insertion_deltav@.
-        }
-        else if option:final_orbit_type = "circular" {
-            set insertion_deltav to circular_insertion_deltav@.
-        }
-        else if option:final_orbit_type = "elliptical" {
-            set insertion_deltav to elliptical_insertion_deltav@.
-        }
-        else {
-            return failure("'final_orbit_type' is not one of expected values 'none', 'circular' or 'elliptical'").
-        }
-    }
-
-    // Final orbit periapsis
-    local final_orbit_pe is 100000.
-
-    if options:haskey("final_orbit_pe") {
-        if is_vessel(origin) {
-            return failure("'final_orbit_pe' is not applicable to Vessel").
-        }
-        else if is_scalar(options:final_orbit_pe) {
-            set final_orbit_pe to options:final_orbit_pe.
-        }
-        else if options:final_orbit_pe = "min" {
-            set final_orbit_pe to choose destination:atm:height + 10000 if destination:atm:exists else 10000.
-        }
-        else {
-            return failure("'final_orbit_pe' is not expected type Scalar or special value 'min'").
-        }
-
-        if final_orbit_pe < 0 {
-            return failure("'final_orbit_pe' must be greater than or equal to zero").
-        }
-    }
-
-    // Verbose mode prints detailed information to the console
-    local verbose is false.
-
-    if options:haskey("verbose") {
-        if is_boolean(options:verbose) {
-            set verbose to options:verbose.
-        }
-        else {
-            return failure("'verbose' is not expected type Boolean").
-        }
-    }
-
-    // Compose settings into a single cost function
-    local latest_departure is earliest_departure + search_duration.
+    local settings is result:settings.
     local search_interval is 0.5 * min_period(origin, destination).
-    local threshold is choose 3600 if is_body(origin) else 60.
+    // TODO: Use orbital period
+    local threshold is 3600. // if settings:origin_is_body else 60.
 
-    local function total_deltav {
+    function total_deltav {
         parameter flip_direction, departure_time, time_of_flight.
 
-        local details is transfer_deltav(origin, destination, flip_direction, departure_time, departure_time + time_of_flight).
-        local ejection is ejection_deltav(origin, initial_orbit_altitude, details).
-        local insertion is insertion_deltav(destination, final_orbit_pe, details).
+        local details is transfer_deltav(origin, destination, flip_direction, departure_time, time_of_flight).
+        local ejection is settings:initial_orbit_type(origin, settings:initial_orbit_pe, details).
+        local insertion is settings:final_orbit_type(destination, settings:final_orbit_pe, details).
 
         return ejection + insertion.
     }
 
-    if verbose {
-        print "Details".
-        print "  Origin: " + origin:name.
-        print "  Destination: " + destination:name.
-        print "  Earliest Departure: " + seconds_to_kerbin_time(earliest_departure).
-        print "  Latest Departure: " + seconds_to_kerbin_time(latest_departure).
-    }
-
-    local transfer is iterated_local_search(earliest_departure, latest_departure, search_interval, threshold, max_time_of_flight, total_deltav@, verbose).
+    local transfer is iterated_local_search(settings:earliest_departure, settings:search_duration, search_interval, threshold, settings:max_time_of_flight, total_deltav@, settings:verbose).
     local details is transfer_deltav(origin, destination, transfer:flip_direction, transfer:departure_time, transfer:arrival_time).
+
+    
+
+
+    
 
     local result is lexicon().
     result:add("success", true).
     result:add("departure_time", transfer:departure_time).
     result:add("arrival_time", transfer:arrival_time).
     result:add("total_deltav", transfer:total_deltav).
-    result:add("final_orbit_pe", final_orbit_pe).
+    result:add("final_orbit_pe", settings:final_orbit_pe).
     result:add("dv1", details:dv1).
     result:add("dv2", details:dv2).
     result:add("osv1", details:osv1).
@@ -197,8 +60,7 @@ global function body_create_maneuver_node {
     parameter origin, destination, options is lexicon().
 
     local details is find_launch_window(origin, destination, options).
-    if not details:success return details.
-    if hasnode return failure("Existing maneuver nodes already exist.").
+    if not details:success return details.    
 
     // Using the raw magnitude of the delta-v as our cost function handles
     // mutliple situtations and edge cases in one simple robust approach.
@@ -241,7 +103,6 @@ global function vessel_create_maneuver_nodes {
 
     local details is find_launch_window(origin, destination, options).
     if not details:success return details.
-    if hasnode return failure("Existing maneuver nodes already exist.").
 
     local departure_time is details:departure_time.
     local final_orbit_pe is details:final_orbit_pe.
@@ -255,18 +116,18 @@ global function vessel_create_maneuver_nodes {
     // For planets, our intercept is usually *too* accurate that it hits the planet
     // dead center, which is not usually what you want. So we tweak the intercept
     // in order to approximate the desired periapsis in a prograde direction.
-    if is_body(destination) {
-        refine_maneuver_node_time(destination, maneuver, final_orbit_pe, departure_time).
-        vessel_refine_maneuver_node_deltav(destination, maneuver, final_orbit_pe, initial_deltav).
+    //if is_body(destination) {
+    //    refine_maneuver_node_time(destination, maneuver, final_orbit_pe, departure_time).
+    //    vessel_refine_maneuver_node_deltav(destination, maneuver, final_orbit_pe, initial_deltav).
 
-    }
+    //}
 
     // Create second node
-    {
-        local arrival_time is time_to_periapsis(destination, maneuver).
-        local deltav is circular_insertion_deltav(destination, final_orbit_pe, details).
-        create_then_add_node(arrival_time, v(0, 0, -deltav)).
-    }
+    //{
+    //    local arrival_time is time_to_periapsis(destination, maneuver).
+    //    local deltav is circular_insertion_deltav(destination, final_orbit_pe, details).
+    //    create_then_add_node(arrival_time, v(0, 0, -deltav)).
+    //}
 
     local result is lexicon().
     result:add("success", true).
@@ -359,6 +220,7 @@ local function distance_to_periapsis {
     return "max".
 }
 
+// TODO: There may be a accidental moon intercept.
 local function time_to_periapsis {
     parameter destination, maneuver.
 
@@ -376,20 +238,3 @@ local function time_to_periapsis {
     
     return "max".    
 }
-
-local function failure {
-    parameter message.
-    return lexicon("success", false, "message", message).
-}
-
-local function is_type {
-    parameter type, x.
-    return type = x:typename.
-}
-
-local is_body is is_type@:bind("body").
-local is_vessel is is_type@:bind("vessel").
-local is_lexicon is is_type@:bind("lexicon").
-local is_scalar is is_type@:bind("scalar").
-local is_timespan is is_type@:bind("timespan").
-local is_boolean is is_type@:bind("boolean").

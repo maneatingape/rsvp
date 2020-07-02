@@ -1,5 +1,6 @@
 @lazyglobal off.
-runoncepath("0:/rsvp/lambert.ks").
+
+import("lambert.ks").
 
 // Calculates the delta-v needed to transfer between origin and destination
 // planets at the specified times.
@@ -17,14 +18,14 @@ runoncepath("0:/rsvp/lambert.ks").
 // departure [Scalar] Departure time in seconds from epoch
 // arrival [Scalar] Arrival time in seconds from epoch
 global function transfer_deltav {
-    parameter origin, destination, flip_direction, departure_time, arrival_time.
+    parameter origin, destination, flip_direction, departure_time, time_of_flight.
 
+    local arrival_time is departure_time + time_of_flight.
     local osv1 is orbital_state_vectors(origin, departure_time).
     local osv2 is orbital_state_vectors(destination, arrival_time).
 
     local r1 is osv1:position.
     local r2 is osv2:position.
-    local time_of_flight is arrival_time - departure_time.
     local mu is origin:body:mu.
 
     // Now that we know the positions of the planets at our departure and
