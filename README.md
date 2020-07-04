@@ -7,6 +7,8 @@ The acronym stands for "Rendezvous s’il vous plaît", a playful pun on the reg
 This library enables players to make automated low delta-v transfers between two planets or vessels in-game, either directly from their own kOS scripts or from the kOS console. It provides a scriptable alternative to existing tools, such as the excellent web based [Launch Window Planner](https://alexmoon.github.io/ksp/) or the snazzy [MechJeb Maneuver Planner](https://github.com/MuMech/MechJeb2/wiki/Maneuver-Planner).
 
 [![](https://github.com/maneatingape/rsvp/workflows/Latest%20Release/badge.svg)](https://github.com/maneatingape/rsvp/releases/latest)
+[![](https://img.shields.io/github/v/release/maneatingape/rsvp)](https://github.com/maneatingape/rsvp/releases/latest)
+[![](https://img.shields.io/github/downloads/maneatingape/rsvp/total)](https://github.com/maneatingape/rsvp/releases/latest)
 
 ## Features
 
