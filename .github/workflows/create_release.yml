@@ -4,7 +4,7 @@ on:
     tags:
     - 'v*'
 
-name: Create Release
+name: Latest Release
 
 jobs:
   build:
