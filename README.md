@@ -1,5 +1,7 @@
 # RSVP
 
+![](https://github.com/maneatingape/rsvp/workflows/create_release/badge.svg)
+
 *RSVP* is a [kOS](https://ksp-kos.github.io/KOS/) library that finds orbital [launch windows](https://en.wikipedia.org/wiki/Launch_window) in the game [Kerbal Space Program](https://www.kerbalspaceprogram.com/).
 The acronym stands for "Rendezvous s’il vous plaît", a playful pun on the regular meaning.
 
