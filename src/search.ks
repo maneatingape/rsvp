@@ -1,5 +1,12 @@
 @lazyglobal off.
 
+parameter export.
+export("iterated_local_search", iterated_local_search@).
+export("seconds_to_kerbin_time", seconds_to_kerbin_time@).
+export("coordinate_descent_1d", coordinate_descent@:bind(one_dimension())).
+export("coordinate_descent_2d", coordinate_descent@:bind(two_dimensions())).
+export("coordinate_descent_3d", coordinate_descent@:bind(three_dimensions())).
+
 // Local search algorithms such as hill climbing, gradient descent or
 // coordinate descent can easily get stuck in local minima.
 //
@@ -11,7 +18,7 @@
 // departure time and the y coordinate is time of flight. The Lambert solver and
 // orbital parameters provides the "cost" function of the delta-v requirement
 // at any given (x,y) point.
-global function iterated_local_search {
+local function iterated_local_search {
     parameter earliest_departure, search_duration, search_interval, step_threshold, max_time_of_flight, total_deltav, verbose.
 
     // The default max_time_of_flight is twice the ideal Hohmann transfer time,
@@ -59,7 +66,7 @@ global function iterated_local_search {
         }
 
         // Start a search from this location, updating "result" if "candidate" delta-v is lower.
-        local candidate is coordinate_descent_2d(cost@, v(x, y, 0), initial_deltav, step_size, step_threshold, step_factor).
+        local candidate is rsvp:coordinate_descent_2d(cost@, v(x, y, 0), initial_deltav, step_size, step_threshold, step_factor).
         local departure_time is candidate:position:x.
         local arrival_time is candidate:position:x + candidate:position:y.
         local total_deltav is candidate:minimum.
@@ -147,15 +154,19 @@ local function coordinate_descent {
     return lexicon("position", position, "minimum", minimum).
 }
 
-local one_dimension is list(v(1, 0, 0), v(-1, 0, 0)).
-local two_dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
-local three_dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0), v(0, 0, 1), v(0, 0, -1)).
+local function one_dimension {
+    return list(v(1, 0, 0), v(-1, 0, 0)).
+}
 
-global coordinate_descent_1d is coordinate_descent@:bind(one_dimension).
-global coordinate_descent_2d is coordinate_descent@:bind(two_dimensions).
-global coordinate_descent_3d is coordinate_descent@:bind(three_dimensions).
+local function two_dimensions {
+    return list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
+}
 
-global function seconds_to_kerbin_time {
+local function three_dimensions {
+    return list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0), v(0, 0, 1), v(0, 0, -1)).
+}
+
+local function seconds_to_kerbin_time {
     parameter seconds.
 
     local timespan is time(seconds).

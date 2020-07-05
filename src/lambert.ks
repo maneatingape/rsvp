@@ -1,5 +1,8 @@
 @lazyglobal off.
 
+parameter export.
+export("lambert", lambert@).
+
 // This code is a Kerboscript port of the PyKep project Lambert's problem solver,
 // developed by the European Space Agency, available at
 // https://github.com/esa/pykep
@@ -40,7 +43,7 @@
 // tof [Scalar] Time of flight (arrival time minus departure time)
 // mu [Scalar] Standard gravitational parameter
 // flip_direction [Boolean] Change transfer direction between prograde/retrograde
-global function lambert {
+local function lambert {
     parameter r1, r2, tof, mu, flip_direction.
 
     // Calculate "lambda" and normalized time of flight "t"

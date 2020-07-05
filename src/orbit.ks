@@ -1,6 +1,20 @@
 @lazyglobal off.
 
-import("lambert.ks").
+parameter export.
+export("transfer_deltav", transfer_deltav@).
+export("orbital_state_vectors", orbital_state_vectors@).
+export("maneuver_node_vector_projection", maneuver_node_vector_projection@).
+export("equatorial_ejection_deltav", equatorial_ejection_deltav@).
+export("vessel_ejection_deltav_from_origin", vessel_ejection_deltav_from_origin@).
+export("circular_insertion_deltav", orbit_insertion_deltav@:bind(true)).
+export("elliptical_insertion_deltav", orbit_insertion_deltav@:bind(false)).
+export("vessel_ejection_deltav", vessel_ejection_deltav@).
+export("vessel_insertion_deltav", vessel_insertion_deltav@).
+export("no_insertion_deltav", no_insertion_deltav@).
+export("ideal_hohmann_transfer_period", ideal_hohmann_transfer_period@).
+export("synodic_period", synodic_period@).
+export("max_period", max_period@).
+export("min_period", min_period@).
 
 // Calculates the delta-v needed to transfer between origin and destination
 // planets at the specified times.
@@ -17,7 +31,7 @@ import("lambert.ks").
 // flip_direction [Boolean] Change transfer direction between prograde/retrograde
 // departure [Scalar] Departure time in seconds from epoch
 // arrival [Scalar] Arrival time in seconds from epoch
-global function transfer_deltav {
+local function transfer_deltav {
     parameter origin, destination, flip_direction, departure_time, time_of_flight.
 
     local arrival_time is departure_time + time_of_flight.
@@ -31,7 +45,7 @@ global function transfer_deltav {
     // Now that we know the positions of the planets at our departure and
     // arrival time, solve Lambert's problem to determine the velocity of the
     // transfer orbit that links the planets at both positions.
-    local solution is lambert(r1, r2, time_of_flight, mu, flip_direction).
+    local solution is rsvp:lambert(r1, r2, time_of_flight, mu, flip_direction).
     local dv1 is solution:v1 - osv1:velocity.
     local dv2 is osv2:velocity - solution:v2.
 
@@ -40,7 +54,7 @@ global function transfer_deltav {
 
 // Returns the cartesian orbital state vectors of position and velocity
 // at any specified time in the present, past or future.
-global function orbital_state_vectors {
+local function orbital_state_vectors {
     parameter orbitable, epoch_time.
 
     // To determine the position of a planet at a specific time "t" relative to
@@ -59,7 +73,7 @@ global function orbital_state_vectors {
 // state vector. This comes in useful as most vectors use KSP's raw coordinate
 // system, however maneuver node's prograde, radial and normal components are
 // relative to the vessel's velocity and position *at the time of the node*.
-global function maneuver_node_vector_projection {
+local function maneuver_node_vector_projection {
     parameter osv, velocity.
 
     // Unit vectors in vessel prograde, radial and normal directions.
@@ -92,7 +106,7 @@ global function maneuver_node_vector_projection {
 //
 // The "body_insertion_deltav" function comment contains details on
 // the formulas used to calculate "v1" and "ve".
-global function equatorial_ejection_deltav {
+local function equatorial_ejection_deltav {
     parameter origin, altitude, transfer_details.
 
     local mu is origin:mu.
@@ -121,7 +135,7 @@ global function equatorial_ejection_deltav {
 //   initial excess velocity must be higher than our desired transfer velocity.
 // * The gravity of the origin bends our trajectory as we escape, so that the
 //   initial velocity vector must be adjusted to compensate.
-global function vessel_ejection_deltav_from_origin {
+local function vessel_ejection_deltav_from_origin {
     parameter origin, osv, transfer_details.
 
     local mu is origin:mu.
@@ -205,9 +219,6 @@ global function vessel_ejection_deltav_from_origin {
 //
 // Taking the square root of equation 5 then subtracting 'v1" gives the delta-v
 // required to capture into the desired orbit.
-global circular_insertion_deltav is orbit_insertion_deltav@:bind(true).
-global elliptical_insertion_deltav is orbit_insertion_deltav@:bind(false).
-
 local function orbit_insertion_deltav {
     parameter is_circular, destination, altitude, transfer_details.
 
@@ -226,13 +237,13 @@ local function orbit_insertion_deltav {
 
 // Vessels have no SOI or gravity so the delta-v required is exactly the
 // transfer orbit departure or arrival delta-v.
-global function vessel_ejection_deltav {
+local function vessel_ejection_deltav {
     parameter origin, altitude, transfer_details.
 
     return transfer_details:dv1:mag.
 }
 
-global function vessel_insertion_deltav {
+local function vessel_insertion_deltav {
     parameter destination, altitude, transfer_details.
 
     return transfer_details:dv2:mag.
@@ -240,7 +251,7 @@ global function vessel_insertion_deltav {
 
 // Calculates the delta-v required for a flyby, aerocapture
 // or extreme lithobrake...
-global function no_insertion_deltav {
+local function no_insertion_deltav {
     parameter destination, altitude, transfer_details.
 
     return 0.
@@ -257,7 +268,7 @@ global function no_insertion_deltav {
 // This means that the idealized transfer orbit is an elliptical orbit with a
 // semi-major axis equal to the average of both planet's semi-major axes.
 // The period can then be determined analytically using Kepler's 3rd law.
-global function ideal_hohmann_transfer_period {
+local function ideal_hohmann_transfer_period {
     parameter origin, destination.
 
     local a is (origin:orbit:semimajoraxis + destination:orbit:semimajoraxis) / 2.
@@ -281,7 +292,7 @@ global function ideal_hohmann_transfer_period {
 // to prevent it from being too short. For example two planets with short but
 // similar orbital periods would have a long synodic period that needs to be
 // searched to reliably return to lowest cost delta-v transfer.
-global function synodic_period {
+local function synodic_period {
     parameter origin, destination.
 
     local p1 is origin:orbit:period.
@@ -291,14 +302,14 @@ global function synodic_period {
 }
 
 // Returns the maximum period of either the origin or destination.
-global function max_period {
+local function max_period {
     parameter origin, destination.
 
     return max(origin:orbit:period, destination:orbit:period).
 }
 
 // Returns the minimum period of either the origin or destination.
-global function min_period {
+local function min_period {
     parameter origin, destination.
 
     return min(origin:orbit:period, destination:orbit:period).

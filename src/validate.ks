@@ -1,6 +1,7 @@
 @lazyglobal off.
 
-import("orbit.ks").
+parameter export.
+export("validate_parameters", validate_parameters@).
 
 local is_body is is_type@:bind("body").
 local is_vessel is is_type@:bind("vessel").
@@ -21,7 +22,7 @@ local delegates is lexicon(
     "verbose", list(validate_verbose@, default_verbose@)    
 ).
 
-global function validate_parameters {
+local function validate_parameters {
     parameter origin, destination, options.
 
     // Collect valid options into "settings" and error messages into "problems".
@@ -206,13 +207,13 @@ local function validate_final_orbit_type {
         problem(20, "'final_orbit_type' is not applicable to Vessel").
     }
     else if value = "none" {
-        setting(no_insertion_deltav@).
+        setting(rsvp:no_insertion_deltav).
     }
     else if value = "circular" {
-        settings(circular_insertion_deltav@).
+        settings(rsvp:circular_insertion_deltav).
     }
     else if value = "elliptical" {
-        setting(elliptical_insertion_deltav@).
+        setting(rsvp:elliptical_insertion_deltav).
     }
     else {
         problem(21, "'final_orbit_type' is not one of expected values 'none', 'circular' or 'elliptical'").
@@ -279,19 +280,19 @@ local function default_earliest_departure {
 local function default_search_duration {
     parameter origin, destination.
 
-    return max(max_period(origin, destination), synodic_period(origin, destination)).
+    return max(rsvp:max_period(origin, destination), rsvp:synodic_period(origin, destination)).
 }
 
 local function default_max_time_of_flight {
     parameter origin, destination.
 
-    return ideal_hohmann_transfer_period(origin, destination).
+    return rsvp:ideal_hohmann_transfer_period(origin, destination).
 }
 
 local function default_initial_orbit_type {
     parameter origin, destination.
 
-    return choose equatorial_ejection_deltav@ if is_body(origin) else vessel_ejection_deltav@.
+    return choose rsvp:equatorial_ejection_deltav if is_body(origin) else rsvp:vessel_ejection_deltav.
 }
 
 local function default_initial_orbit_pe {
@@ -303,7 +304,7 @@ local function default_initial_orbit_pe {
 local function default_final_orbit_type {
     parameter origin, destination.
 
-    return choose circular_insertion_deltav@ if is_body(destination) else vessel_insertion_deltav@.
+    return choose rsvp:circular_insertion_deltav if is_body(destination) else rsvp:vessel_insertion_deltav.
 }
 
 local function default_final_orbit_pe {

@@ -2,44 +2,50 @@
 
 parameter base_path is "0:/rsvp".
 
+global rsvp is lexicon().
+
 import("orbit.ks").
 import("search.ks").
 import("validate.ks").
+import("lambert.ks").
 
-global function import {
+export("find_launch_window", find_launch_window@).
+
+local function import {
     parameter filename.
 
-    runoncepath(base_path + "/" + filename).
+    runoncepath(base_path + "/" + filename, export@).
 }
 
-global function find_launch_window {
+local function export {
+    parameter key, value.
+
+    rsvp:add(key, value).
+}
+
+local function find_launch_window {
     parameter origin, destination, options is lexicon().
 
-    local result is validate_parameters(origin, destination, options).
+    local result is rsvp:validate_parameters(origin, destination, options).
     if not result:success return result.
 
     local settings is result:settings.
-    local search_interval is 0.5 * min_period(origin, destination).
+    local search_interval is 0.5 * rsvp:min_period(origin, destination).
     // TODO: Use orbital period
     local threshold is 3600. // if settings:origin_is_body else 60.
 
     function total_deltav {
         parameter flip_direction, departure_time, time_of_flight.
 
-        local details is transfer_deltav(origin, destination, flip_direction, departure_time, time_of_flight).
+        local details is rsvp:transfer_deltav(origin, destination, flip_direction, departure_time, time_of_flight).
         local ejection is settings:initial_orbit_type(origin, settings:initial_orbit_pe, details).
         local insertion is settings:final_orbit_type(destination, settings:final_orbit_pe, details).
 
         return ejection + insertion.
     }
 
-    local transfer is iterated_local_search(settings:earliest_departure, settings:search_duration, search_interval, threshold, settings:max_time_of_flight, total_deltav@, settings:verbose).
-    local details is transfer_deltav(origin, destination, transfer:flip_direction, transfer:departure_time, transfer:arrival_time).
-
-    
-
-
-    
+    local transfer is rsvp:iterated_local_search(settings:earliest_departure, settings:search_duration, search_interval, threshold, settings:max_time_of_flight, total_deltav@, settings:verbose).
+    local details is rsvp:transfer_deltav(origin, destination, transfer:flip_direction, transfer:departure_time, transfer:arrival_time).
 
     local result is lexicon().
     result:add("success", true).
@@ -56,7 +62,7 @@ global function find_launch_window {
 // WORK IN PROGRESS
 // Creates maneuver node at the correct location around the origin
 // planet in order to eject at the desired orientation.
-global function body_create_maneuver_node {
+local function body_create_maneuver_node {
     parameter origin, destination, options is lexicon().
 
     local details is find_launch_window(origin, destination, options).
@@ -77,20 +83,20 @@ global function body_create_maneuver_node {
     // TODO: Re-calculate transfer details?
     function cost {
         parameter v.
-        local osv is orbital_state_vectors(ship, v:x).
-        return vessel_ejection_deltav_from_origin(origin, osv, details):mag.
+        local osv is rsvp:orbital_state_vectors(ship, v:x).
+        return rsvp:vessel_ejection_deltav_from_origin(origin, osv, details):mag.
     }
 
     local initial_position is v(details:departure_time, 0, 0).
     local initial_cost is cost(initial_position).
-    local result is coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
+    local result is rsvp:coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
 
     local refined_time is result:position:x.
-    local osv is orbital_state_vectors(ship, refined_time).
-    local ejection_velocity is vessel_ejection_deltav_from_origin(origin, osv, details).
+    local osv is rsvp:orbital_state_vectors(ship, refined_time).
+    local ejection_velocity is rsvp:vessel_ejection_deltav_from_origin(origin, osv, details).
 
     // Ejection velocity projected onto ship prograde, normal and radial vectors.
-    local projection is maneuver_node_vector_projection(osv, ejection_velocity).
+    local projection is rsvp:maneuver_node_vector_projection(osv, ejection_velocity).
 
     local maneuver is create_then_add_node(refined_time, projection).
     refine_maneuver_node_time(destination, maneuver, details:final_orbit_pe, refined_time).
@@ -98,7 +104,7 @@ global function body_create_maneuver_node {
 
 // WORK IN PROGRESS
 // Only works when both origin and destination are vessels.
-global function vessel_create_maneuver_nodes {
+local function vessel_create_maneuver_nodes {
     parameter origin, destination, options is lexicon().
 
     local details is find_launch_window(origin, destination, options).
@@ -107,8 +113,8 @@ global function vessel_create_maneuver_nodes {
     local departure_time is details:departure_time.
     local final_orbit_pe is details:final_orbit_pe.
 
-    local osv is orbital_state_vectors(origin, departure_time).
-    local initial_deltav is maneuver_node_vector_projection(osv, details:dv1).
+    local osv is rsvp:orbital_state_vectors(origin, departure_time).
+    local initial_deltav is rsvp:maneuver_node_vector_projection(osv, details:dv1).
     local maneuver is create_then_add_node(departure_time, initial_deltav).
 
     // If the destination is a vessel (including asteroids or comets) then our
@@ -147,7 +153,7 @@ local function refine_maneuver_node_time {
 
     local initial_position is v(departure_time, 0, 0).
     local initial_cost is cost(initial_position).
-    local result is coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
+    local result is rsvp:coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
 
     update_node_time(maneuver, result:position:x).
 }
@@ -164,7 +170,7 @@ local function vessel_refine_maneuver_node_deltav {
     }
     
     local initial_cost is cost(initial_deltav).
-    local result is coordinate_descent_3d(cost@, initial_deltav, initial_cost, 1, 0.001, 0.5).
+    local result is rsvp:coordinate_descent_3d(cost@, initial_deltav, initial_cost, 1, 0.001, 0.5).
 
     update_node_deltav(maneuver, result:position).
 }
