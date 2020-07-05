@@ -76,7 +76,7 @@ local function orbital_state_vectors {
 local function maneuver_node_vector_projection {
     parameter osv, velocity.
 
-    // Unit vectors in vessel prograde, radial and normal directions.
+    // Unit vectors in vessel prograde and normal directions.
     local unit_prograde is osv:velocity:normalized.
     local unit_normal is vcrs(osv:velocity, osv:position):normalized.
     // KSP quirk: Manuever node "radial" is not the usual meaning of radial

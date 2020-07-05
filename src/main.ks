@@ -10,7 +10,6 @@ import("validate.ks").
 import("lambert.ks").
 
 export("find_launch_window", find_launch_window@).
-export("information_only", information_only@).
 export("vessel_to_vessel", vessel_to_vessel@).
 export("vessel_to_planet", vessel_to_planet@).
 export("planet_to_vessel", planet_to_vessel@).
@@ -53,17 +52,6 @@ local function find_launch_window {
     return rsvp[settings:transfer_type](origin, destination, settings, transfer, details).
 }
 
-local function information_only {
-    parameter origin, destination, settings, transfer, details.
-
-    return lexicon(
-        "success", true,
-        "departure_time", transfer:departure_time,
-        "arrival_time", transfer:arrival_time,
-        "total_deltav", transfer:total_deltav
-    ).
-}
-
 local function vessel_to_vessel {
     parameter origin, destination, settings, transfer, details.
 
@@ -82,7 +70,12 @@ local function vessel_to_vessel {
         create_then_add_node(arrival_time, final_deltav).
     }
 
-    return lexicon("success", true).
+    return lexicon(
+        "success", true,
+        "departure_time", transfer:departure_time,
+        "arrival_time", transfer:arrival_time,
+        "total_deltav", transfer:total_deltav
+    ).
 }
 
 local function vessel_to_planet {

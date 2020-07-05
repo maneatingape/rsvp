@@ -83,24 +83,24 @@ local function validate_prerequisites {
     parameter destination, options, problem.
 
     if ship <> kuniverse:activevessel {
-        problem(27, "Can't add maneuver node as CPU vessel '" + ship:name + "'' is not active vessel").
+        problem(1, "Can't add maneuver node as CPU vessel '" + ship:name + "'' is not active vessel").
     }
     else if hasnode {
-        problem(25, "Existing maneuver node already exists").
+        problem(2, "Existing maneuver node already exists").
     }
 
     if not is_body(destination) and not is_vessel(destination) {
-        problem(2, "Parameter 'destination' is not expected type Orbitable (Vessels and Bodies)").
+        problem(3, "Parameter 'destination' is not expected type Orbitable (Vessels and Bodies)").
     }
     else if destination = ship {
         problem(4, "'origin' and 'destination' must be different").
     }
     else if not destination:hasbody {
-        problem(6, "Destination '" + origin:name + "' is not orbiting a parent body.").
+        problem(5, "Destination '" + origin:name + "' is not orbiting a parent body.").
     }
 
     if not is_lexicon(options) {
-        problem(3, "Parameter 'options' is not expected type Lexicon").
+        problem(6, "Parameter 'options' is not expected type Lexicon").
     }
 }
 
@@ -121,7 +121,7 @@ local function validate_orbital_constraints {
         setting("initial_orbit_type")("equatorial_ejection_deltav").
     }
     else {
-        problem(8, "Destination '" + destination:name + "' is not orbiting a direct common parent or grandparent of ship").
+        problem(7, "Destination '" + destination:name + "' is not orbiting a direct common parent or grandparent of ship").
     }
 }
 
@@ -130,16 +130,16 @@ local function validate_earliest_departure {
 
     if is_scalar(value) {
         if setting(value) < 0 {
-            problem(10, "'earliest_departure' must be greater than or equal to zero").
+            problem(8, "'earliest_departure' must be greater than or equal to zero").
         }    
     }
     else if is_timespan(value) {
         if setting(value:seconds) < 0 {
-            problem(10, "'earliest_departure' must be greater than or equal to zero").
+            problem(8, "'earliest_departure' must be greater than or equal to zero").
         }            
     }
     else {
-        problem(11, "'earliest_departure' is not expected type Scalar or TimeSpan").
+        problem(9, "'earliest_departure' is not expected type Scalar or TimeSpan").
     }
 }
 
@@ -148,11 +148,11 @@ local function validate_search_duration {
 
     if is_scalar(value) {                
         if setting(value) <= 0 {
-            problem(12, "'search_duration' must be greater than zero").
+            problem(10, "'search_duration' must be greater than zero").
         }    
     }
     else {
-        problem(13, "'search_duration' is not expected type Scalar").
+        problem(11, "'search_duration' is not expected type Scalar").
     }
 }
 
@@ -161,11 +161,11 @@ local function validate_max_time_of_flight {
 
     if is_scalar(value) {
         if setting(value) <= 0 {
-            problem(14, "'max_time_of_flight' must be greater than zero").
+            problem(12, "'max_time_of_flight' must be greater than zero").
         }    
     }
     else {
-        problem(15, "'max_time_of_flight' is not expected type Scalar").
+        problem(13, "'max_time_of_flight' is not expected type Scalar").
     }
 }
 
@@ -173,7 +173,7 @@ local function validate_final_orbit_type {
     parameter destination, value, setting, problem.
 
     if is_vessel(destination) {
-        problem(20, "'final_orbit_type' is not applicable to Vessel").
+        problem(14, "'final_orbit_type' is not applicable to Vessel").
     }
     else if value = "none" {
         setting("no_insertion_deltav").
@@ -185,7 +185,7 @@ local function validate_final_orbit_type {
         setting("elliptical_insertion_deltav").
     }
     else {
-        problem(21, "'final_orbit_type' is not one of expected values 'none', 'circular' or 'elliptical'").
+        problem(15, "'final_orbit_type' is not one of expected values 'none', 'circular' or 'elliptical'").
     }    
 }
 
@@ -193,11 +193,11 @@ local function validate_final_orbit_pe {
     parameter destination, value, setting, problem.
 
     if is_vessel(destination) {
-        problem(22, "'final_orbit_pe' is not applicable to Vessel").
+        problem(16, "'final_orbit_pe' is not applicable to Vessel").
     }
     else if is_scalar(value) {
         if setting(value) < 0 {
-            problem(23, "'final_orbit_pe' must be greater than or equal to zero").
+            problem(17, "'final_orbit_pe' must be greater than or equal to zero").
         }            
     }
     else if value = "min" {
@@ -205,7 +205,7 @@ local function validate_final_orbit_pe {
         setting(altitude).
     }
     else {
-        problem(24, "'final_orbit_pe' is not expected type Scalar or special value 'min'").
+        problem(18, "'final_orbit_pe' is not expected type Scalar or special value 'min'").
     }
 }
 
@@ -218,11 +218,11 @@ local function validate_create_maneuver_nodes {
     else if value = "first" or value = "both" {
         setting(value).
         if ship:status <> "orbiting" {
-            problem(26, "Can't add maneuver node to ship not in stable orbit").
+            problem(19, "Can't add maneuver node to ship not in stable orbit").
         }
     }
     else {
-        problem(28, "'create_maneuver_nodes' is not one of expected values 'none', 'first' or 'both'").
+        problem(20, "'create_maneuver_nodes' is not one of expected values 'none', 'first' or 'both'").
     }
 }
 
@@ -233,7 +233,7 @@ local function validate_verbose {
         setting(value).
     }
     else {
-        problem(29, "'verbose' is not expected type Boolean").
+        problem(21, "'verbose' is not expected type Boolean").
     }    
 }
 
