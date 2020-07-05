@@ -14,8 +14,6 @@ local delegates is lexicon(
     "earliest_departure", list(validate_earliest_departure@, default_earliest_departure@),
     "search_duration", list(validate_search_duration@, default_search_duration@),
     "max_time_of_flight", list(validate_max_time_of_flight@, default_max_time_of_flight@),
-    "initial_orbit_type", list(validate_initial_orbit_type@, default_initial_orbit_type@),
-    "initial_orbit_pe", list(validate_initial_orbit_pe@, default_initial_orbit_pe@),
     "final_orbit_type", list(validate_final_orbit_type@, default_final_orbit_type@),
     "final_orbit_pe", list(validate_final_orbit_pe@, default_final_orbit_pe@),
     "create_maneuver_nodes", list(validate_create_maneuver_nodes@, default_create_maneuver_nodes@),
@@ -23,7 +21,7 @@ local delegates is lexicon(
 ).
 
 local function validate_parameters {
-    parameter origin, destination, options.
+    parameter destination, options.
 
     // Collect valid options into "settings" and error messages into "problems".
     local settings is lexicon().
@@ -43,13 +41,19 @@ local function validate_parameters {
         problems:add(key, value).
     }
 
-    // Normally we'll try to gather as many problems before returning
-    // but problems here are showstoppers that mean we can't continue.
-    validate_parameter_types(origin, destination, options, problem@).
+    // Any problems with prerequisites or contraints are
+    // showstoppers that mean we can't continue.
+    validate_prerequisites(destination, options, problem@).
     if problems:length > 0 return failure(problems).
 
-    validate_orbital_constraints(origin, destination, setting("transfer_type"), problem@).
+    validate_orbital_constraints(destination, setting@, problem@).
     if problems:length > 0 return failure(problems).
+
+    // TODO: Refactor
+    local min_period is rsvp:min_period(settings:origin, destination).
+    setting("initial_orbit_pe")(max(ship:periapsis, 0)).
+    setting("search_interval")(0.5 * min_period).
+    setting("search_threshold")(max(120, min(0.001 * min_period, 3600))).
 
     // Check for unknown option keys that could indicate a typo
     for key in options:keys {
@@ -64,26 +68,37 @@ local function validate_parameters {
         local provide_default is delegates[key][1].
 
         if options:haskey(key) {
-            validate_option(origin, destination, options[key], setting(key), problem@).
+            validate_option(destination, options[key], setting(key), problem@).
         }
         else {
-            setting(key)(provide_default(origin, destination)).
+            setting(key)(provide_default(settings:origin, destination)).
         }
     }
 
     return choose success(settings) if problems:length = 0 else failure(problems).
 }
 
-// Basic sanity check of parameter types
-local function validate_parameter_types {
-    parameter origin, destination, options, problem.
+// Basic sanity checks
+local function validate_prerequisites {
+    parameter destination, options, problem.
 
-    if not is_body(origin) and not is_vessel(origin) {
-        problem(1, "Parameter 'origin' is not expected type Orbitable (Vessels and Bodies)").
+    if ship <> kuniverse:activevessel {
+        problem(27, "Can't add maneuver node as CPU vessel '" + ship:name + "'' is not active vessel").
     }
+    else if hasnode {
+        problem(25, "Existing maneuver node already exists").
+    }
+
     if not is_body(destination) and not is_vessel(destination) {
         problem(2, "Parameter 'destination' is not expected type Orbitable (Vessels and Bodies)").
     }
+    else if destination = ship {
+        problem(4, "'origin' and 'destination' must be different").
+    }
+    else if not destination:hasbody {
+        problem(6, "Destination '" + origin:name + "' is not orbiting a parent body.").
+    }
+
     if not is_lexicon(options) {
         problem(3, "Parameter 'options' is not expected type Lexicon").
     }
@@ -91,47 +106,27 @@ local function validate_parameter_types {
 
 // Sanity check origin and destination
 local function validate_orbital_constraints {
-    parameter origin, destination, setting, problem.
+    parameter destination, setting, problem.
 
-    if origin = destination {
-        problem(4, "'origin' and 'destination' must be different").
+    if ship:body = destination:body {
+        local transfer_type is choose "vessel_to_planet" if is_body(destination) else "vessel_to_vessel".
+        setting("transfer_type")(transfer_type).
+        setting("origin")(ship).
+        setting("initial_orbit_type")("vessel_ejection_deltav").
     }
-    if not origin:hasbody {
-        problem(5, "Origin '" + origin:name + "' is not orbiting a parent body.").
-    }    
-    if not destination:hasbody {
-        problem(6, "Destination '" + origin:name + "' is not orbiting a parent body.").
-    }
-
-    local ancestors is origin:hasbody and destination:hasbody.
-    local parent is ancestors and origin:body = destination:body.
-    local grandparent is ancestors and origin:body:hasbody and origin:body:body = destination:body.
-
-    if is_body(origin) {
-        if parent {
-            setting("info").
-        }
-        else {
-            problem(7, "Destination '" + destination:name + "' is not orbiting a direct common parent of origin '" + origin:name + "'").
-        }
+    else if ship:body:hasbody and ship:body:body = destination:body {
+        local transfer_type is choose "planet_to_planet" if is_body(destination) else "planet_to_vessel".
+        setting("transfer_type")(transfer_type).
+        setting("origin")(ship:body).
+        setting("initial_orbit_type")("equatorial_ejection_deltav").
     }
     else {
-        if parent {
-            local transfer_type is choose "vessel_to_planet" if is_body(destination) else "vessel_to_vessel".
-            setting(transfer_type).
-        }
-        else if grandparent {
-            local transfer_type is choose "planet_to_planet" if is_body(destination) else "planet_to_vessel".
-            setting(transfer_type).
-        }
-        else {
-            problem(8, "Destination '" + destination:name + "' is not orbiting a direct common parent or grandparent of origin '" + origin:name + "'").    
-        }
+        problem(8, "Destination '" + destination:name + "' is not orbiting a direct common parent or grandparent of ship").
     }
 }
 
 local function validate_earliest_departure {
-    parameter origin, destination, value, setting, problem.
+    parameter destination, value, setting, problem.
 
     if is_scalar(value) {
         if setting(value) < 0 {
@@ -149,10 +144,10 @@ local function validate_earliest_departure {
 }
 
 local function validate_search_duration {
-    parameter origin, destination, value, setting, problem.
+    parameter destination, value, setting, problem.
 
     if is_scalar(value) {                
-        if setting(value) {
+        if setting(value) <= 0 {
             problem(12, "'search_duration' must be greater than zero").
         }    
     }
@@ -162,7 +157,7 @@ local function validate_search_duration {
 }
 
 local function validate_max_time_of_flight {
-    parameter origin, destination, value, setting, problem.
+    parameter destination, value, setting, problem.
 
     if is_scalar(value) {
         if setting(value) <= 0 {
@@ -174,46 +169,20 @@ local function validate_max_time_of_flight {
     }
 }
 
-local function validate_initial_orbit_type {
-    parameter origin, destination, value, setting, problem.
-
-    problems(16, "'initial_orbit_type' is not user-definable").
-}
-
-local function validate_initial_orbit_pe {
-    parameter origin, destination, value, setting, problem.
-
-    if is_vessel(origin) {
-        problem(17, "'initial_orbit_pe' is not applicable to Vessel").
-    }
-    else if is_scalar(value) {
-        if setting(value) < 0 {
-            problem(18, "'initial_orbit_pe' must be greater than or equal to zero").
-        }            
-    }
-    else if value = "min" {
-        local altitude is choose origin:atm:height + 10000 if origin:atm:exists else 10000.
-        setting(altitude).
-    }
-    else {
-        problems:add(19, "'initial_orbit_pe' is not expected type Scalar or special value 'min'").
-    }
-}
-
 local function validate_final_orbit_type {
-    parameter origin, destination, value, setting, problem.
+    parameter destination, value, setting, problem.
 
     if is_vessel(destination) {
         problem(20, "'final_orbit_type' is not applicable to Vessel").
     }
     else if value = "none" {
-        setting(rsvp:no_insertion_deltav).
+        setting("no_insertion_deltav").
     }
     else if value = "circular" {
-        settings(rsvp:circular_insertion_deltav).
+        settings("circular_insertion_deltav").
     }
     else if value = "elliptical" {
-        setting(rsvp:elliptical_insertion_deltav).
+        setting("elliptical_insertion_deltav").
     }
     else {
         problem(21, "'final_orbit_type' is not one of expected values 'none', 'circular' or 'elliptical'").
@@ -221,7 +190,7 @@ local function validate_final_orbit_type {
 }
 
 local function validate_final_orbit_pe {
-    parameter origin, destination, value, setting, problem.
+    parameter destination, value, setting, problem.
 
     if is_vessel(destination) {
         problem(22, "'final_orbit_pe' is not applicable to Vessel").
@@ -241,33 +210,30 @@ local function validate_final_orbit_pe {
 }
 
 local function validate_create_maneuver_nodes {
-    parameter origin, destination, value, setting, problem.
+    parameter destination, value, setting, problem.
 
     if value = "none" {
         setting(value).
     }
     else if value = "first" or value = "both" {
         setting(value).
-        if hasnode {
-            problem(25, "Existing maneuver node already exists").
+        if ship:status <> "orbiting" {
+            problem(26, "Can't add maneuver node to ship not in stable orbit").
         }
-        if is_body(origin) {
-            problem(26, "Can't add maneuver node to origin " + origin:name).
-        }        
     }
     else {
-        problem(27, "'create_maneuver_nodes' is not one of expected values 'none', 'first' or 'both'").
+        problem(28, "'create_maneuver_nodes' is not one of expected values 'none', 'first' or 'both'").
     }
 }
 
 local function validate_verbose {
-   parameter origin, destination, value, setting, problem.
+   parameter destination, value, setting, problem.
 
     if is_boolean(value) {
         setting(value).
     }
     else {
-        problem(28, "'verbose' is not expected type Boolean").
+        problem(29, "'verbose' is not expected type Boolean").
     }    
 }
 
@@ -289,22 +255,10 @@ local function default_max_time_of_flight {
     return rsvp:ideal_hohmann_transfer_period(origin, destination).
 }
 
-local function default_initial_orbit_type {
-    parameter origin, destination.
-
-    return choose rsvp:equatorial_ejection_deltav if is_body(origin) else rsvp:vessel_ejection_deltav.
-}
-
-local function default_initial_orbit_pe {
-    parameter origin, destination.
-
-    return 100000.
-}
-
 local function default_final_orbit_type {
     parameter origin, destination.
 
-    return choose rsvp:circular_insertion_deltav if is_body(destination) else rsvp:vessel_insertion_deltav.
+    return choose "circular_insertion_deltav" if is_body(destination) else "vessel_insertion_deltav".
 }
 
 local function default_final_orbit_pe {

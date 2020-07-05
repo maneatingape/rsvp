@@ -10,6 +10,11 @@ import("validate.ks").
 import("lambert.ks").
 
 export("find_launch_window", find_launch_window@).
+export("information_only", information_only@).
+export("vessel_to_vessel", vessel_to_vessel@).
+export("vessel_to_planet", vessel_to_planet@).
+export("planet_to_vessel", planet_to_vessel@).
+export("planet_to_planet", planet_to_planet@).
 
 local function import {
     parameter filename.
@@ -24,50 +29,103 @@ local function export {
 }
 
 local function find_launch_window {
-    parameter origin, destination, options is lexicon().
+    parameter destination, options is lexicon().
 
-    local result is rsvp:validate_parameters(origin, destination, options).
+    local result is rsvp:validate_parameters(destination, options).
     if not result:success return result.
 
     local settings is result:settings.
-    local search_interval is 0.5 * rsvp:min_period(origin, destination).
-    // TODO: Use orbital period
-    local threshold is 3600. // if settings:origin_is_body else 60.
+    local origin is settings:origin.
+    local transfer_details is rsvp:transfer_deltav:bind(origin, destination).
+    local ejection_deltav is rsvp[settings:initial_orbit_type]:bind(origin, settings:initial_orbit_pe).
+    local insertion_deltav is rsvp[settings:final_orbit_type]:bind(destination, settings:final_orbit_pe).
 
     function total_deltav {
         parameter flip_direction, departure_time, time_of_flight.
 
-        local details is rsvp:transfer_deltav(origin, destination, flip_direction, departure_time, time_of_flight).
-        local ejection is settings:initial_orbit_type(origin, settings:initial_orbit_pe, details).
-        local insertion is settings:final_orbit_type(destination, settings:final_orbit_pe, details).
-
-        return ejection + insertion.
+        local details is transfer_details(flip_direction, departure_time, time_of_flight).
+        return ejection_deltav(details) + insertion_deltav(details).
     }
 
-    local transfer is rsvp:iterated_local_search(settings:earliest_departure, settings:search_duration, search_interval, threshold, settings:max_time_of_flight, total_deltav@, settings:verbose).
-    local details is rsvp:transfer_deltav(origin, destination, transfer:flip_direction, transfer:departure_time, transfer:arrival_time).
+    local transfer is rsvp:iterated_local_search(settings, total_deltav@).
+    local details is transfer_details(transfer:flip_direction, transfer:departure_time, transfer:time_of_flight).
 
-    local result is lexicon().
-    result:add("success", true).
-    result:add("departure_time", transfer:departure_time).
-    result:add("arrival_time", transfer:arrival_time).
-    result:add("total_deltav", transfer:total_deltav).
-    result:add("final_orbit_pe", settings:final_orbit_pe).
-    result:add("dv1", details:dv1).
-    result:add("dv2", details:dv2).
-    result:add("osv1", details:osv1).
-    return result.
+    return rsvp[settings:transfer_type](origin, destination, settings, transfer, details).
 }
 
-// WORK IN PROGRESS
-// Creates maneuver node at the correct location around the origin
-// planet in order to eject at the desired orientation.
-local function body_create_maneuver_node {
-    parameter origin, destination, options is lexicon().
+local function information_only {
+    parameter origin, destination, settings, transfer, details.
 
-    local details is find_launch_window(origin, destination, options).
-    if not details:success return details.    
+    return lexicon(
+        "success", true,
+        "departure_time", transfer:departure_time,
+        "arrival_time", transfer:arrival_time,
+        "total_deltav", transfer:total_deltav
+    ).
+}
 
+local function vessel_to_vessel {
+    parameter origin, destination, settings, transfer, details.
+
+    // If the destination is a vessel (including asteroids or comets) then our
+    // intercept is already accurate enough and maneuver refinement has no benefit.
+    if settings:create_maneuver_nodes <> "none" {
+        local osv is rsvp:orbital_state_vectors(origin, transfer:departure_time).
+        local initial_deltav is rsvp:maneuver_node_vector_projection(osv, details:dv1).
+        create_then_add_node(transfer:departure_time, initial_deltav).
+    }
+
+    if settings:create_maneuver_nodes = "both" {
+        local arrival_time is transfer:departure_time + transfer:time_of_flight.
+        local osv is rsvp:orbital_state_vectors(origin, arrival_time).
+        local final_deltav is rsvp:maneuver_node_vector_projection(osv, details:dv2).
+        create_then_add_node(arrival_time, final_deltav).
+    }
+
+    return lexicon("success", true).
+}
+
+local function vessel_to_planet {
+    parameter origin, destination, settings, transfer, details.
+
+    local departure_time is transfer:departure_time.
+    local final_orbit_pe is settings:final_orbit_pe.
+    local maneuver is 0.
+
+    // For planets, our intercept is usually *too* accurate that it hits the planet
+    // dead center, which is not usually what you want. So we tweak the intercept
+    // in order to approximate the desired periapsis in a prograde direction.
+    if settings:create_maneuver_nodes <> "none" {
+        local osv is rsvp:orbital_state_vectors(origin, departure_time).
+        local initial_deltav is rsvp:maneuver_node_vector_projection(osv, details:dv1).
+        set maneuver to create_then_add_node(departure_time, initial_deltav).
+
+        refine_maneuver_node_time(destination, maneuver, final_orbit_pe, departure_time).
+        vessel_refine_maneuver_node_deltav(destination, maneuver, final_orbit_pe, initial_deltav).
+    }
+
+    if settings:create_maneuver_nodes = "both" {
+        local arrival_time is time_to_periapsis(destination, maneuver).
+        // TODO: Use actual velocity of vessel at that point.
+        // TODO: Use actual desired function
+        local deltav is rsvp:circular_insertion_deltav(destination, final_orbit_pe, details).
+        create_then_add_node(arrival_time, v(0, 0, -deltav)).
+    }
+
+    return lexicon("success", true).
+}
+
+local function planet_to_vessel {
+    parameter origin, destination, settings, transfer, details.
+
+    return lexicon("sucess", false, "message", "Planet to Vessel is not supported yet").
+}
+
+local function planet_to_planet {
+    parameter origin, destination, settings, transfer, details.
+
+    // Creates maneuver node at the correct location around the origin
+    // planet in order to eject at the desired orientation.
     // Using the raw magnitude of the delta-v as our cost function handles
     // mutliple situtations and edge cases in one simple robust approach.
     // For example prograde/retrograde ejection combined with
@@ -87,7 +145,7 @@ local function body_create_maneuver_node {
         return rsvp:vessel_ejection_deltav_from_origin(origin, osv, details):mag.
     }
 
-    local initial_position is v(details:departure_time, 0, 0).
+    local initial_position is v(transfer:departure_time, 0, 0).
     local initial_cost is cost(initial_position).
     local result is rsvp:coordinate_descent_1d(cost@, initial_position, initial_cost, 120, 1, 0.5).
 
@@ -98,46 +156,12 @@ local function body_create_maneuver_node {
     // Ejection velocity projected onto ship prograde, normal and radial vectors.
     local projection is rsvp:maneuver_node_vector_projection(osv, ejection_velocity).
 
-    local maneuver is create_then_add_node(refined_time, projection).
-    refine_maneuver_node_time(destination, maneuver, details:final_orbit_pe, refined_time).
-}
+    if settings:create_maneuver_nodes <> "none" {
+        local maneuver is create_then_add_node(refined_time, projection).
+        refine_maneuver_node_time(destination, maneuver, settings:final_orbit_pe, refined_time).
+    }
 
-// WORK IN PROGRESS
-// Only works when both origin and destination are vessels.
-local function vessel_create_maneuver_nodes {
-    parameter origin, destination, options is lexicon().
-
-    local details is find_launch_window(origin, destination, options).
-    if not details:success return details.
-
-    local departure_time is details:departure_time.
-    local final_orbit_pe is details:final_orbit_pe.
-
-    local osv is rsvp:orbital_state_vectors(origin, departure_time).
-    local initial_deltav is rsvp:maneuver_node_vector_projection(osv, details:dv1).
-    local maneuver is create_then_add_node(departure_time, initial_deltav).
-
-    // If the destination is a vessel (including asteroids or comets) then our
-    // intercept is already accurate enough and maneuver refinement has no benefit.
-    // For planets, our intercept is usually *too* accurate that it hits the planet
-    // dead center, which is not usually what you want. So we tweak the intercept
-    // in order to approximate the desired periapsis in a prograde direction.
-    //if is_body(destination) {
-    //    refine_maneuver_node_time(destination, maneuver, final_orbit_pe, departure_time).
-    //    vessel_refine_maneuver_node_deltav(destination, maneuver, final_orbit_pe, initial_deltav).
-
-    //}
-
-    // Create second node
-    //{
-    //    local arrival_time is time_to_periapsis(destination, maneuver).
-    //    local deltav is circular_insertion_deltav(destination, final_orbit_pe, details).
-    //    create_then_add_node(arrival_time, v(0, 0, -deltav)).
-    //}
-
-    local result is lexicon().
-    result:add("success", true).
-    return result.
+    return lexicon("success", true).
 }
 
 // Applies coordinate descent algorithm in 1 dimension (time)

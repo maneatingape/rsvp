@@ -19,7 +19,14 @@ export("coordinate_descent_3d", coordinate_descent@:bind(three_dimensions())).
 // orbital parameters provides the "cost" function of the delta-v requirement
 // at any given (x,y) point.
 local function iterated_local_search {
-    parameter earliest_departure, search_duration, search_interval, step_threshold, max_time_of_flight, total_deltav, verbose.
+    parameter settings, total_deltav.
+
+    local earliest_departure is settings:earliest_departure.
+    local search_duration is settings:search_duration.
+    local search_interval is settings:search_interval.
+    local step_threshold is settings:search_threshold.
+    local max_time_of_flight is settings:max_time_of_flight.
+    local verbose is settings:verbose.
 
     // The default max_time_of_flight is twice the ideal Hohmann transfer time,
     // so setting the intial guess to half of that will be reasonably close to
@@ -68,20 +75,20 @@ local function iterated_local_search {
         // Start a search from this location, updating "result" if "candidate" delta-v is lower.
         local candidate is rsvp:coordinate_descent_2d(cost@, v(x, y, 0), initial_deltav, step_size, step_threshold, step_factor).
         local departure_time is candidate:position:x.
-        local arrival_time is candidate:position:x + candidate:position:y.
+        local time_of_flight is candidate:position:y.
         local total_deltav is candidate:minimum.
 
         if verbose {
             print "Search offset: " + seconds_to_kerbin_time(x).
             print "  Departure: " + seconds_to_kerbin_time(departure_time).
-            print "  Arrival: " + seconds_to_kerbin_time(arrival_time).
+            print "  Arrival: " + seconds_to_kerbin_time(departure_time + time_of_flight).
             print "  Delta-v: " + round(total_deltav).
         }
 
         if total_deltav < result:total_deltav {
             set result to lexicon().
             result:add("departure_time", departure_time).
-            result:add("arrival_time", arrival_time).
+            result:add("time_of_flight", time_of_flight).
             result:add("total_deltav", total_deltav).
             result:add("flip_direction", flip_direction).
         }
@@ -91,7 +98,7 @@ local function iterated_local_search {
         print "Invocations: " + invocations.
         print "Best Result".
         print "  Departure: " + seconds_to_kerbin_time(result:departure_time).
-        print "  Arrival: " + seconds_to_kerbin_time(result:arrival_time).
+        print "  Arrival: " + seconds_to_kerbin_time(result:departure_time + result:time_of_flight).
         print "  Delta-v: " + round(result:total_deltav).
     }
 
