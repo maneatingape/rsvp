@@ -2,10 +2,7 @@
 
 parameter export.
 export("iterated_local_search", iterated_local_search@).
-export("seconds_to_kerbin_time", seconds_to_kerbin_time@).
-export("coordinate_descent_1d", coordinate_descent@:bind(one_dimension())).
-export("coordinate_descent_2d", coordinate_descent@:bind(two_dimensions())).
-export("coordinate_descent_3d", coordinate_descent@:bind(three_dimensions())).
+export("coordinate_descent_1d", coordinate_descent_1d@).
 
 // Local search algorithms such as hill climbing, gradient descent or
 // coordinate descent can easily get stuck in local minima.
@@ -73,22 +70,22 @@ local function iterated_local_search {
         }
 
         // Start a search from this location, updating "result" if "candidate" delta-v is lower.
-        local candidate is rsvp:coordinate_descent_2d(cost@, v(x, y, 0), initial_deltav, step_size, step_threshold, step_factor).
+        local candidate is coordinate_descent_2d(cost@, x, y, initial_deltav, step_size, step_threshold, step_factor).
         local departure_time is candidate:position:x.
-        local time_of_flight is candidate:position:y.
+        local arrival_time is candidate:position:x + candidate:position:y.
         local total_deltav is candidate:minimum.
 
         if verbose {
             print "Search offset: " + seconds_to_kerbin_time(x).
             print "  Departure: " + seconds_to_kerbin_time(departure_time).
-            print "  Arrival: " + seconds_to_kerbin_time(departure_time + time_of_flight).
+            print "  Arrival: " + seconds_to_kerbin_time(arrival_time).
             print "  Delta-v: " + round(total_deltav).
         }
 
         if total_deltav < result:total_deltav {
             set result to lexicon().
             result:add("departure_time", departure_time).
-            result:add("time_of_flight", time_of_flight).
+            result:add("arrival_time", arrival_time).
             result:add("total_deltav", total_deltav).
             result:add("flip_direction", flip_direction).
         }
@@ -98,7 +95,7 @@ local function iterated_local_search {
         print "Invocations: " + invocations.
         print "Best Result".
         print "  Departure: " + seconds_to_kerbin_time(result:departure_time).
-        print "  Arrival: " + seconds_to_kerbin_time(result:departure_time + result:time_of_flight).
+        print "  Arrival: " + seconds_to_kerbin_time(result:arrival_time).
         print "  Delta-v: " + round(result:total_deltav).
     }
 
@@ -161,16 +158,23 @@ local function coordinate_descent {
     return lexicon("position", position, "minimum", minimum).
 }
 
-local function one_dimension {
-    return list(v(1, 0, 0), v(-1, 0, 0)).
+local function coordinate_descent_1d {
+    parameter cost, x, step_size, step_threshold, step_factor.
+
+    local dimensions is list(v(1, 0, 0), v(-1, 0, 0)).
+    local position is v(x, 0, 0).
+    local minimum is cost(position).
+
+    return coordinate_descent(dimensions, cost, position, minimum, step_size, step_threshold, step_factor).
 }
 
-local function two_dimensions {
-    return list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
-}
+local function coordinate_descent_2d {
+    parameter cost, x, y, minimum, step_size, step_threshold, step_factor.
 
-local function three_dimensions {
-    return list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0), v(0, 0, 1), v(0, 0, -1)).
+    local dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
+    local position is v(x, y, 0).
+
+    return coordinate_descent(dimensions, cost, position, minimum, step_size, step_threshold, step_factor).
 }
 
 local function seconds_to_kerbin_time {

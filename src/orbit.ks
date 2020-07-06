@@ -5,7 +5,8 @@ export("transfer_deltav", transfer_deltav@).
 export("orbital_state_vectors", orbital_state_vectors@).
 export("maneuver_node_vector_projection", maneuver_node_vector_projection@).
 export("equatorial_ejection_deltav", equatorial_ejection_deltav@).
-export("vessel_ejection_deltav_from_origin", vessel_ejection_deltav_from_origin@).
+export("vessel_ejection_deltav_from_body", vessel_ejection_deltav_from_body@).
+export("impact_parameter_offset", impact_parameter_offset@).
 export("circular_insertion_deltav", orbit_insertion_deltav@:bind(true)).
 export("elliptical_insertion_deltav", orbit_insertion_deltav@:bind(false)).
 export("vessel_ejection_deltav", vessel_ejection_deltav@).
@@ -32,15 +33,15 @@ export("min_period", min_period@).
 // departure [Scalar] Departure time in seconds from epoch
 // arrival [Scalar] Arrival time in seconds from epoch
 local function transfer_deltav {
-    parameter origin, destination, flip_direction, departure_time, time_of_flight.
+    parameter origin, destination, flip_direction, departure_time, arrival_time, parent is origin:body, offset is v(0, 0, 0).
 
-    local arrival_time is departure_time + time_of_flight.
-    local osv1 is orbital_state_vectors(origin, departure_time).
-    local osv2 is orbital_state_vectors(destination, arrival_time).
+    local time_of_flight is arrival_time - departure_time.
+    local osv1 is orbital_state_vectors(origin, departure_time, parent).
+    local osv2 is orbital_state_vectors(destination, arrival_time, parent).
 
     local r1 is osv1:position.
-    local r2 is osv2:position.
-    local mu is origin:body:mu.
+    local r2 is osv2:position + offset.
+    local mu is parent:mu.
 
     // Now that we know the positions of the planets at our departure and
     // arrival time, solve Lambert's problem to determine the velocity of the
@@ -55,15 +56,15 @@ local function transfer_deltav {
 // Returns the cartesian orbital state vectors of position and velocity
 // at any specified time in the present, past or future.
 local function orbital_state_vectors {
-    parameter orbitable, epoch_time.
+    parameter orbitable, epoch_time, parent is orbitable:body.
 
     // To determine the position of a planet at a specific time "t" relative to
     // its parent body using the "positionat" function, you must subtract the
     // *current* position of the parent body, not the position of the parent
     // body at time "t" as might be expected.
-    local position is positionat(orbitable, epoch_time) - orbitable:body:position.
+    local position is positionat(orbitable, epoch_time) - parent:position.
     // "velocityat" already returns orbital velocity relative to the parent
-    // body, so no further adjustment is needed.    
+    // body, so no further adjustment is needed.
     local velocity is velocityat(orbitable, epoch_time):orbit.
 
     return lexicon("position", position, "velocity", velocity).
@@ -116,7 +117,7 @@ local function equatorial_ejection_deltav {
     local v1 is sqrt(mu / r1).
     local v2 is transfer_details:dv1:mag.
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
-    
+
     local osv1 is transfer_details:osv1.
     local unit_normal is vcrs(osv1:velocity, osv1:position):normalized.
     local normal_component is vdot(unit_normal, transfer_details:dv1).
@@ -135,15 +136,15 @@ local function equatorial_ejection_deltav {
 //   initial excess velocity must be higher than our desired transfer velocity.
 // * The gravity of the origin bends our trajectory as we escape, so that the
 //   initial velocity vector must be adjusted to compensate.
-local function vessel_ejection_deltav_from_origin {
-    parameter origin, osv, transfer_details.
+local function vessel_ejection_deltav_from_body {
+    parameter origin, osv, departure_deltav.
 
     local mu is origin:mu.
     local r1 is osv:position:mag.
     local r2 is origin:soiradius.
 
     local v1 is osv:velocity:mag.
-    local v2 is transfer_details:dv1:mag.
+    local v2 is departure_deltav:mag.
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
 
     // Calculate the eccentricity and semi-major axis of the escape hyperbola
@@ -180,14 +181,46 @@ local function vessel_ejection_deltav_from_origin {
     local slope_angle is 90 - arctan(m).
     local ship_normal is vcrs(osv:velocity, osv:position).
     local inverse_rotation is angleaxis(slope_angle, ship_normal).
-    local ejection_velocity is (ve / v2) * transfer_details:dv1 * inverse_rotation.
+    local ejection_velocity is (ve / v2) * departure_deltav * inverse_rotation.
 
     return ejection_velocity - osv:velocity.
 }
 
+// Calculates the impact parameter offset. The impact parameter is the distance
+// that the vessel would miss the destination if there was no gravity in its SOI.
+// Approaching on a hyperbolic trajectory from infinity this is simply "b"
+// the semi-minor axis.
+//
+// This is slightly incorrect for KSP's finite SOIs, but is close enough to make
+// a good initial guess when tweaking the intercept for a desired periapsis.
+// This figure is used to scale a vector offset from the planet's center that
+// will result in an orbit periapsis in the correct location.
+local function impact_parameter_offset {
+    parameter destination, arrival_time, arrival_velocity, altitude, orientation.
+
+    local mu is destination:mu.
+    local r1 is destination:radius + altitude.
+    local r2 is destination:soiradius.
+
+    local v2 is arrival_velocity:mag.
+
+    local a is 1 / (2 / r2 - v2 ^ 2 / mu).
+    local e is 1 - r1 / a.
+    local b is -a * sqrt(e ^ 2 - 1).
+
+    local osv is orbital_state_vectors(destination, arrival_time).
+    local normal is vcrs(osv:velocity, osv:position):normalized.
+    local radial is vcrs(normal, arrival_velocity):normalized.
+
+    local orientation_vectors is lexicon("prograde", radial, "polar", normal, "retrograde", -radial).
+    local offset_vector is b * orientation_vectors[orientation].
+
+    return offset_vector.
+}
+
 // Calculate the delta-v required to convert a hyperbolic intercept orbit
 // into a circular or elliptical orbit around the target planet
-// with the desired periapsis. 
+// with the desired periapsis.
 //
 // To simplify calculations no inclination change is made, so that the delta-v
 // required will simply be the difference between the hyperbolic velocity
