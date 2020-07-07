@@ -27,24 +27,16 @@ local function find_launch_window {
     parameter destination, options is lexicon().
 
     local result is rsvp:validate_parameters(destination, options).
-    if not result:success return result.
 
-    local settings is result:settings.
-    local origin is settings:origin.
-    local transfer_details is rsvp:transfer_deltav:bind(origin, destination).
-    local ejection_deltav is rsvp[settings:initial_orbit_type]:bind(origin, settings:initial_orbit_pe).
-    local insertion_deltav is rsvp[settings:final_orbit_type]:bind(destination, settings:final_orbit_pe).
-
-    function total_deltav {
-        parameter flip_direction, departure_time, time_of_flight.
-
-        local details is transfer_details(flip_direction, departure_time, departure_time + time_of_flight).
-        return ejection_deltav(details) + insertion_deltav(details).
+    if not result:success {
+        print result:value.
+        return result.
     }
 
-    local transfer is rsvp:iterated_local_search(settings, total_deltav@).
+    local settings is result:value.
+    local transfer is find_transfer(destination, settings).
 
-    local result is lexicon().
+    set result to lexicon().
     result:add("success", true).
     result:add("estimated_departure_time", transfer:departure_time).
     result:add("estimated_arrival_time", transfer:arrival_time).
@@ -53,7 +45,7 @@ local function find_launch_window {
     // First check point. If no nodes are requests then we're done.
     if settings:create_maneuver_nodes = "none" return result.
 
-    local maneuver is from_origin(origin, destination, transfer, v(0, 0, 0)).
+    local maneuver is from_origin(destination, settings, transfer, v(0, 0, 0)).
 
     // If the destination is a vessel (including asteroids or comets) then our
     // intercept is already accurate enough and maneuver refinement has no benefit.
@@ -61,13 +53,13 @@ local function find_launch_window {
     // For planets, our intercept is usually *too* accurate that it hits the planet
     // dead center, which is not usually what you want. So we tweak the intercept
     // in order to approximate the desired periapsis in a prograde direction.
-    if destination:typename = "body" {
+    if settings:origin_is_body {
         local arrival_time is time_at_soi(destination, maneuver).
         local arrival_velocity is speed_at_soi(destination, maneuver).
-        local offset is rsvp:impact_parameter_offset(destination, arrival_time, arrival_velocity, settings:final_orbit_pe, "prograde").
+        local offset is rsvp:impact_parameter_offset(destination, arrival_time, arrival_velocity, settings:final_orbit_periapsis, settings:final_orbit_orientation).
 
         remove maneuver.
-        set maneuver to from_origin(origin, destination, transfer, offset).
+        set maneuver to from_origin(destination, settings, transfer, offset).
     }
 
     result:add("actual_departure_time", time:seconds + maneuver:eta).
@@ -76,23 +68,81 @@ local function find_launch_window {
     return result.
 }
 
+local function find_transfer {
+    parameter destination, settings.
+
+    local origin is choose ship:body if settings:origin_is_body else ship.
+
+    local verbose is settings:verbose.
+
+    local earliest_departure is settings:earliest_departure.
+    if earliest_departure = "default" {
+        set earliest_departure to time():seconds + 120.
+    }
+
+    local search_duration is settings:search_duration.
+    if search_duration = "default" {
+        local max_period is rsvp:max_period(origin, destination).
+        local synodic_period is rsvp:synodic_period(origin, destination).
+        set search_duration to max(max_period, synodic_period).
+    }
+
+    local max_time_of_flight is settings:max_time_of_flight.
+    if max_time_of_flight = "default" {
+        set max_time_of_flight to rsvp:ideal_hohmann_transfer_period(origin, destination).
+    }
+
+    local min_period is rsvp:min_period(origin, destination).
+    local search_interval is 0.5 * min_period.
+    local search_threshold is max(120, min(0.001 * min_period, 3600)).
+
+    local transfer_details is rsvp:transfer_deltav:bind(origin, destination).
+    local ejection_deltav is choose rsvp:equatorial_ejection_deltav if settings:origin_is_body else rsvp:vessel_ejection_deltav.
+    
+    local initial_orbit_periapsis is max(ship:periapsis, 0).
+    local final_orbit_periapsis is settings:final_orbit_periapsis.
+
+    local key is choose settings:final_orbit_type if settings:origin_is_body else "vessel".
+    local values is lexicon(
+        "vessel", rsvp:vessel_insertion_deltav,
+        "circular", rsvp:circular_insertion_deltav,
+        "elliptical", rsvp:elliptical_insertion_deltav,
+        "none", rsvp:no_insertion_deltav
+    ).
+
+    local insertion_deltav is values[key].
+
+    function total_deltav {
+        parameter flip_direction, departure_time, time_of_flight.
+
+        local arrival_time is departure_time + time_of_flight.
+        local details is transfer_details(flip_direction, departure_time, arrival_time).
+        local ejection is ejection_deltav(origin, initial_orbit_periapsis, details).
+        local insertion is insertion_deltav(destination, final_orbit_periapsis, details).
+
+        return ejection + insertion.
+    }
+
+    return rsvp:iterated_local_search(verbose, earliest_departure, search_duration, max_time_of_flight, search_interval, search_threshold, total_deltav@).
+}
+
 local function from_origin {
-    parameter origin, destination, transfer, offset.
+    parameter destination, settings, transfer, offset.
 
     local flip_direction is transfer:flip_direction.
     local departure_time is transfer:departure_time.
     local arrival_time is transfer:arrival_time.
 
-    if origin:typename = "body" {
-        return from_body(origin, destination, flip_direction, departure_time, arrival_time, offset).
+    if settings:origin_is_body {
+        return from_body(destination, flip_direction, departure_time, arrival_time, offset).
     }
     else {
-        return from_vessel(origin, destination, flip_direction, departure_time, arrival_time, offset).
+        return from_vessel(destination, flip_direction, departure_time, arrival_time, offset).
     }
 }
 
 local function from_vessel {
-    parameter origin, destination, flip_direction, departure_time, arrival_time, offset.
+    parameter destination, flip_direction, departure_time, arrival_time, offset.
 
     local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time, ship:body, offset).
     local osv is rsvp:orbital_state_vectors(ship, departure_time).
@@ -102,14 +152,14 @@ local function from_vessel {
 }
 
 local function from_body {
-    parameter origin, destination, flip_direction, departure_time, arrival_time, offset.
+    parameter destination, flip_direction, departure_time, arrival_time, offset.
 
     local delta is v(1, 0, 0).
     local iterations is 0.
 
-    local details is rsvp:transfer_deltav(origin, destination, flip_direction, departure_time, arrival_time, origin:body, offset).
+    local details is rsvp:transfer_deltav(ship:body, destination, flip_direction, departure_time, arrival_time, ship:body:body, offset).
     local departure_deltav is details:dv1.
-    local maneuver is create_maneuver_node_in_correct_location(origin, departure_time, departure_deltav).
+    local maneuver is create_maneuver_node_in_correct_location(departure_time, departure_deltav).
 
     until delta:mag < 0.001 or iterations = 15 {
         local t2 is time():seconds + maneuver:orbit:nextpatcheta.
@@ -121,7 +171,7 @@ local function from_body {
         set departure_deltav to departure_deltav + delta.
 
         remove maneuver.
-        set maneuver to create_maneuver_node_in_correct_location(origin, departure_time, departure_deltav).
+        set maneuver to create_maneuver_node_in_correct_location(departure_time, departure_deltav).
     }
 
     return maneuver.
@@ -141,14 +191,14 @@ local function from_body {
 //
 // Finally it can handle non-perfectly circular and inclined orbits.
 local function create_maneuver_node_in_correct_location {
-    parameter origin, departure_time, departure_deltav.
+    parameter departure_time, departure_deltav.
 
     function ejection_details {
         parameter cost_only, v.
 
         local epoch_time is v:x.
         local osv is rsvp:orbital_state_vectors(ship, epoch_time).
-        local ejection_deltav is rsvp:vessel_ejection_deltav_from_body(origin, osv, departure_deltav).
+        local ejection_deltav is rsvp:vessel_ejection_deltav_from_body(ship:body, osv, departure_deltav).
 
         return choose ejection_deltav:mag if cost_only else rsvp:maneuver_node_vector_projection(osv, ejection_deltav).
     }

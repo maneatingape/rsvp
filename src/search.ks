@@ -16,14 +16,7 @@ export("coordinate_descent_1d", coordinate_descent_1d@).
 // orbital parameters provides the "cost" function of the delta-v requirement
 // at any given (x,y) point.
 local function iterated_local_search {
-    parameter settings, total_deltav.
-
-    local earliest_departure is settings:earliest_departure.
-    local search_duration is settings:search_duration.
-    local search_interval is settings:search_interval.
-    local step_threshold is settings:search_threshold.
-    local max_time_of_flight is settings:max_time_of_flight.
-    local verbose is settings:verbose.
+    parameter verbose, earliest_departure, search_duration, max_time_of_flight, search_interval, step_threshold, total_deltav.
 
     // The default max_time_of_flight is twice the ideal Hohmann transfer time,
     // so setting the intial guess to half of that will be reasonably close to
