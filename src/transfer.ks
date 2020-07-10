@@ -185,7 +185,7 @@ local function create_maneuver_node_in_correct_location {
 
     // Search for time in ship's orbit where ejection deltav is lowest.
     // Ejection velocity projected onto ship prograde, normal and radial vectors.
-    local result is rsvp:coordinate_descent_1d(ejection_details@:bind(true), departure_time, 120, 1, 0.5).
+    local result is rsvp:line_search(ejection_details@:bind(true), departure_time, 120, 1, 0.5).
     local projection is ejection_details(false, result:position).
 
     return rsvp:create_maneuver(destination, result:position:x, projection).

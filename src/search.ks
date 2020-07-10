@@ -1,11 +1,11 @@
 @lazyglobal off.
 
 parameter export.
-export("coordinate_descent_1d", coordinate_descent_1d@).
+export("line_search", line_search@).
 export("iterated_local_search", iterated_local_search@).
 
 // Convenience wrapper for searching only a single dimension.
-local function coordinate_descent_1d {
+local function line_search {
     parameter cost, x, step_size, step_threshold, step_factor.
 
     local dimensions is list(v(1, 0, 0), v(-1, 0, 0)).
@@ -16,7 +16,7 @@ local function coordinate_descent_1d {
 }
 
 // Convenience wrapper for searching two dimensions.
-local function coordinate_descent_2d {
+local function grid_search {
     parameter cost, x, y, minimum, step_size, step_threshold.
 
     local dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
@@ -141,7 +141,7 @@ local function iterated_local_search {
         }
 
         // Start a search from this location, updating "result" if "candidate" delta-v is lower.
-        local candidate is coordinate_descent_2d(cost@, x, y, initial_deltav, step_size, step_threshold).
+        local candidate is grid_search(cost@, x, y, initial_deltav, step_size, step_threshold).
         local departure_time is candidate:position:x.
         local arrival_time is candidate:position:x + candidate:position:y.
         local total_deltav is candidate:minimum.
