@@ -13,12 +13,11 @@ local function create_maneuver {
     return lexicon(
         "delete", delete@:bind(maneuver),
         "departure_time", departure_time@:bind(maneuver),
-        "patch_time", patch_time@:bind(maneuver),
         "deltav", get_deltav@:bind(maneuver),
-        "distance_to_periapsis", distance_to_periapsis@:bind(destination, maneuver),
-        "time_to_periapsis", time_to_periapsis@:bind(destination, maneuver),
-        "speed_at_soi", speed_at_soi@:bind(destination, maneuver),
-        "time_at_soi", time_at_soi@:bind(destination, maneuver)
+        "patch_time", patch_time@:bind(maneuver),
+        "osv_at_destination_soi", osv_at_destination_soi@:bind(destination, maneuver),
+        "distance_to_periapsis", distance_to_periapsis@:bind(destination, maneuver)
+        //"time_to_periapsis", time_to_periapsis@:bind(destination, maneuver),
     ).
 }
 
@@ -34,12 +33,6 @@ local function departure_time {
     return time():seconds + maneuver:eta.
 }
 
-local function patch_time {
-    parameter maneuver.    
-
-    return time():seconds + maneuver:orbit:nextpatcheta.
-}
-
 local function get_deltav {
     parameter maneuver.    
 
@@ -47,6 +40,45 @@ local function get_deltav {
 }
 
 // TODO: There may be a accidental moon intercept.
+local function patch_time {
+    parameter maneuver.    
+
+    return time():seconds + maneuver:orbit:nextpatcheta.
+}
+
+// Returns the predicted time and velocity of the ship when it will enter
+// the destination's SOI.
+local function osv_at_destination_soi {
+    parameter destination, maneuver.
+
+    local orbit is maneuver:orbit.
+
+    until not orbit:hasnextpatch {
+        local arrival_time is time():seconds + orbit:nextpatcheta.
+        set orbit to orbit:nextpatch.
+
+        if orbit:body = destination {
+            local arrival_velocity is velocityat(ship, arrival_time):orbit.
+
+            // When the destination is a moon (rather than a planet) then
+            // "velocityat" returns value relative to the parent planet *not*
+            // the moon, even though ship is within moon's SOI at 'arrival_time'.
+            if destination:body:hasbody {
+                local adjustment is velocityat(destination, arrival_time):orbit.
+                set arrival_velocity to arrival_velocity - adjustment.
+            }
+
+            return lexicon(
+                "success", true,
+                "time", arrival_time,
+                "velocity", arrival_velocity
+            ).
+        }
+    }
+
+    return lexicon("success", false).
+}
+
 local function distance_to_periapsis {
     parameter destination, maneuver, final_orbit_periapsis.
 
@@ -56,10 +88,7 @@ local function distance_to_periapsis {
         set orbit to orbit:nextpatch.
 
         if orbit:body = destination {
-            local altitude is orbit:body:radius + orbit:final_orbit_periapsis.
-            local desired is orbit:body:radius + final_orbit_pe.
-
-            return abs(altitude - desired).
+            return abs(orbit:periapsis - final_orbit_periapsis).
         }
     }
 
@@ -67,6 +96,7 @@ local function distance_to_periapsis {
 }
 
 // TODO: There may be a accidental moon intercept.
+// or not enough patches to get and "exit" point for average.
 local function time_to_periapsis {
     parameter destination, maneuver.
 
@@ -79,42 +109,6 @@ local function time_to_periapsis {
 
         if orbit:body = destination {
             return time():seconds + (start + end) / 2.
-        }
-    }
-
-    return "max".
-}
-
-// TODO: There may be a accidental moon intercept.
-local function speed_at_soi {
-    parameter destination, maneuver.
-
-    local orbit is maneuver:orbit.
-
-    until not orbit:hasnextpatch {
-        local start is orbit:nextpatcheta.
-        set orbit to orbit:nextpatch.
-
-        if orbit:body = destination {
-            return velocityat(ship, time():seconds + start):orbit.
-        }
-    }
-
-    return "max".
-}
-
-// TODO: There may be a accidental moon intercept.
-local function time_at_soi {
-    parameter destination, maneuver.
-
-    local orbit is maneuver:orbit.
-
-    until not orbit:hasnextpatch {
-        local start is orbit:nextpatcheta.
-        set orbit to orbit:nextpatch.
-
-        if orbit:body = destination {
-            return time():seconds + start.
         }
     }
 

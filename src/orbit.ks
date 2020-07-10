@@ -213,9 +213,9 @@ local function impact_parameter_offset {
     local radial is vcrs(normal, arrival_velocity):normalized.
 
     local orientation_vectors is lexicon("prograde", radial, "polar", normal, "retrograde", -radial).
-    local offset_vector is b * orientation_vectors[orientation].
+    local offset_vector is orientation_vectors[orientation].
 
-    return offset_vector.
+    return lexicon("factor", b, "vector", offset_vector).
 }
 
 // Calculate the delta-v required to convert a hyperbolic intercept orbit

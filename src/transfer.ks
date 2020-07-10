@@ -34,12 +34,31 @@ local function find_launch_window {
     // dead center, which is not usually what you want. So we tweak the intercept
     // in order to approximate the desired periapsis in a prograde direction.
     if destination:istype("body") {
-        local arrival_time is maneuver:time_at_soi().
-        local arrival_velocity is maneuver:speed_at_soi().
-        local offset is rsvp:impact_parameter_offset(destination, arrival_time, arrival_velocity, settings:final_orbit_periapsis, settings:final_orbit_orientation).
+        if settings:origin_is_body {
+            local arrival is maneuver:osv_at_destination_soi().
+        
+            if arrival:success {
+                local offset is rsvp:impact_parameter_offset(destination, arrival:time, arrival:velocity, settings:final_orbit_periapsis, settings:final_orbit_orientation).
+                maneuver:delete().
+                set maneuver to from_origin(destination, settings, transfer, offset:factor * offset:vector).
+            }
+        }
+        else {
+            local arrival is maneuver:osv_at_destination_soi().
+            local offset is rsvp:impact_parameter_offset(destination, arrival:time, arrival:velocity, settings:final_orbit_periapsis, settings:final_orbit_orientation).
 
-        maneuver:delete().
-        set maneuver to from_origin(destination, settings, transfer, offset).
+            function cost {
+                parameter v.
+
+                maneuver:delete().
+                set maneuver to from_origin(destination, settings, transfer, v:x * offset:vector).
+
+                return maneuver:distance_to_periapsis(settings:final_orbit_periapsis).
+            }
+
+            local result is rsvp:line_search(cost@, offset:factor, 0.25 * offset:factor, 100, 0.5).
+            cost(result:position).
+        }
     }
 
     result:add("actual_departure_time", maneuver:departure_time()).
@@ -137,6 +156,7 @@ local function from_body {
     local delta is v(1, 0, 0).
     local iterations is 0.
 
+    // TODO: flip_direction can't be trusted
     local details is rsvp:transfer_deltav(ship:body, destination, flip_direction, departure_time, arrival_time, ship:body:body, offset).
     local departure_deltav is details:dv1.
     local maneuver is create_maneuver_node_in_correct_location(destination, departure_time, departure_deltav).
