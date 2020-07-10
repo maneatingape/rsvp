@@ -173,7 +173,7 @@ local function vessel_ejection_deltav_from_body {
     // Now that we know the angle that the origin bends our escape trajectory,
     // we work backwards to determine the initial escape velocity vector.
     // Starting with the desired transfer vecocity at SOI edge given by
-    // "transfer_details:dv1", we first invert the rotation acquired during escape,
+    // "departure_deltav", we first invert the rotation acquired during escape,
     // then scale by the appropriate factor and finally subtract the vessel's
     // current velocity to give the delta-v required.
     //

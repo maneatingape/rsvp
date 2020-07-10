@@ -9,7 +9,7 @@ export("body_to_body", body_to_body@).
 // Vessel to vessel rendezvous (asteroids and comets also technically count
 // as vessels) within the same SOI is the most straightforward case. The values
 // from the Lambert solver are more than accurate enough to be used directly
-// resulting in very precise intercepts, even over interplantery distances.
+// resulting in very precise intercepts, even over interplanetary distances.
 local function vessel_to_vessel {
     parameter destination, settings, transfer, result.
 
