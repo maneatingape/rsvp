@@ -1,1 +1,10 @@
+# Linux
+.directory
+*~
+
+# macOS
 .DS_Store
+
+# Windows
+Thumbs.db
+[Dd]esktop.ini
