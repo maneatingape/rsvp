@@ -1,10 +1,8 @@
 @lazyglobal off.
 
-// Override this parameter to use the library from a different path or volume.
-parameter base_path is "0:/rsvp".
-
-// Functions are added to this lexicon by the "export" method
-// to prevent pollution of the global namespace.
+// Local functions are added to this lexicon by the "export" method
+// in order to make them available to other scripts
+// while preventing pollution of the global namespace.
 global rsvp is lexicon().
 
 import("lambert.ks").
@@ -17,7 +15,8 @@ import("validate.ks").
 local function import {
     parameter filename.
 
-    runoncepath(base_path + "/" + filename, export@).
+    local full_path is scriptpath():parent:combine(filename).
+    runoncepath(full_path, export@).
 }
 
 local function export {
