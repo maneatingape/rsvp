@@ -15,10 +15,11 @@ jobs:
         uses: actions/checkout@v2
       - name: Create Asset
         env:
-          VERSION: ${{ github.ref }}
+          RELEASE_VERSION: ${{ github.ref }}
         run: |
-          cp -r src rsvp
-          echo $VERSION > rsvp/version.txt
+          mkdir rsvp
+          cp -r src/*.ks rsvp
+          echo $RELEASE_VERSION > rsvp/version.txt
           date -u >> rsvp/version.txt
           zip -r rsvp.zip rsvp
       - name: Create Release
