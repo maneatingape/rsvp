@@ -68,7 +68,13 @@ local function lambert {
         set lambda to -lambda.
     }
 
-    // Determine Lancaster-Blanchard variable "x".
+    // The clever part of this algorithm is reducing the problem down to a
+    // function of a single variable "x" (the Lancaster-Blanchard variable).
+    // This function is well behaved over almost all possible values of x
+    // and also has well behaved 1st, 2nd and 3rd order derivatives.
+    // This allows us to solve for x using a iterative numerical method then
+    // use that value to determine the desired velocities of the transfer orbit
+    // at points r1 and r2.
     local x is iterative_root_finder(lambda, t).
 
     // Construct velocity vectors from "x"
