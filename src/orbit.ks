@@ -206,7 +206,8 @@ local function impact_parameter_offset {
 
     local a is 1 / (2 / r2 - v2 ^ 2 / mu).
     local e is 1 - r1 / a.
-    local b is -a * sqrt(e ^ 2 - 1).
+    // Handle both hyperbolic and elliptical cases
+    local b is abs(a) * sqrt(abs(1 - e ^ 2)).
 
     local osv is orbital_state_vectors(destination, arrival_time).
     local normal is vcrs(osv:velocity, osv:position):normalized.

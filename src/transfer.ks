@@ -42,6 +42,7 @@ local function find_launch_window {
                 maneuver:delete().
                 set maneuver to from_origin(destination, settings, transfer, offset:factor * offset:vector).
             }
+
         }
         else {
             local arrival is maneuver:osv_at_destination_soi().
@@ -59,6 +60,23 @@ local function find_launch_window {
             local result is rsvp:line_search(cost@, offset:factor, 0.25 * offset:factor, 100, 0.5).
             cost(result:position).
         }
+
+        if settings:create_maneuver_nodes = "both" {
+            local arrival is maneuver:osv_at_destination_soi().
+            local periapsis_details is maneuver:time_to_periapsis().
+
+            if periapsis_details <> "max" {
+                // TODO: Move to "maneuver.ks"
+                local foo is lexicon("dv2", arrival:velocity).
+                local bar is get_insertion_deltav_function(destination, settings).
+                local qux is bar(destination, periapsis_details:altitude, foo).
+
+                add node(periapsis_details:time, 0, 0, -qux).
+            }
+            else {
+                // TODO: Handle error case.
+            }
+        }        
     }
 
     result:add("actual_departure_time", maneuver:departure_time()).
@@ -101,15 +119,7 @@ local function find_transfer {
     local initial_orbit_periapsis is max(ship:periapsis, 0).
     local final_orbit_periapsis is settings:final_orbit_periapsis.
 
-    local key is choose settings:final_orbit_type if destination:istype("body") else "vessel".
-    local values is lexicon(
-        "vessel", rsvp:vessel_insertion_deltav,
-        "circular", rsvp:circular_insertion_deltav,
-        "elliptical", rsvp:elliptical_insertion_deltav,
-        "none", rsvp:no_insertion_deltav
-    ).
-
-    local insertion_deltav is values[key].
+    local insertion_deltav is get_insertion_deltav_function(destination, settings).
 
     function total_deltav {
         parameter flip_direction, departure_time, time_of_flight.
@@ -123,6 +133,20 @@ local function find_transfer {
     }
 
     return rsvp:iterated_local_search(verbose, earliest_departure, search_duration, max_time_of_flight, search_interval, search_threshold, total_deltav@).
+}
+
+local function get_insertion_deltav_function {
+    parameter destination, settings.
+
+    local key is choose settings:final_orbit_type if destination:istype("body") else "vessel".
+    local values is lexicon(
+        "vessel", rsvp:vessel_insertion_deltav,
+        "circular", rsvp:circular_insertion_deltav,
+        "elliptical", rsvp:elliptical_insertion_deltav,
+        "none", rsvp:no_insertion_deltav
+    ).
+
+    return values[key].
 }
 
 local function from_origin {

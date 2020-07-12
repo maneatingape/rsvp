@@ -16,8 +16,8 @@ local function create_maneuver {
         "deltav", get_deltav@:bind(maneuver),
         "patch_time", patch_time@:bind(maneuver),
         "osv_at_destination_soi", osv_at_destination_soi@:bind(destination, maneuver),
-        "distance_to_periapsis", distance_to_periapsis@:bind(destination, maneuver)
-        //"time_to_periapsis", time_to_periapsis@:bind(destination, maneuver),
+        "distance_to_periapsis", distance_to_periapsis@:bind(destination, maneuver),
+        "time_to_periapsis", time_to_periapsis@:bind(destination, maneuver)
     ).
 }
 
@@ -101,16 +101,30 @@ local function time_to_periapsis {
     parameter destination, maneuver.
 
     local orbit is maneuver:orbit.
+    local periapsis_details is "max".
+
+    function planet_cost {
+        parameter v.
+        return (positionat(ship, v:x) - destination:position):mag.
+    }
+
+    function moon_cost {
+        parameter v.
+        return (positionat(ship, v:x) - positionat(destination, v:x)):mag.
+    }
+
+    local cost is choose moon_cost@ if destination:body:hasbody else planet_cost@.
 
     until not orbit:hasnextpatch {
-        local start is orbit:nextpatcheta.
+        local start_time is time():seconds + orbit:nextpatcheta.
         set orbit to orbit:nextpatch.
-        local end is orbit:nextpatcheta.
 
         if orbit:body = destination {
-            return time():seconds + (start + end) / 2.
+
+            local result is rsvp:line_search(cost@, start_time, 21600, 1, 0.5).
+            set periapsis_details to lexicon("time", result:position:x, "altitude", result:minimum - destination:radius).
         }
     }
 
-    return "max".
+    return periapsis_details.
 }
