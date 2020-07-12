@@ -3,7 +3,7 @@
 parameter export.
 export("validate_parameters", validate_parameters@).
 
-local delegates is lexicon(
+local delegates is lex(
     "verbose", list(false, validate_boolean@),
     "earliest_departure", list("default", validate_scalar@),
     "search_duration", list("default", validate_scalar@),
@@ -18,7 +18,7 @@ local delegates is lexicon(
 local function validate_parameters {
     parameter destination, options.
 
-    local settings is lexicon().
+    local settings is lex().
     local problems is list().
 
     function problem {
@@ -33,7 +33,7 @@ local function validate_parameters {
     local success is problems:length = 0.
     local value is choose settings if success else problems.
 
-    return lexicon("success", success, "value", value).
+    return lex("success", success, "value", value).
 }
 
 // Basic sanity checks

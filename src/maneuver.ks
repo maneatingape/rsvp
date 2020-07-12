@@ -10,7 +10,7 @@ local function create_maneuver {
     local maneuver is node(epoch_time, deltav:x, deltav:y, deltav:z).
     add maneuver.
 
-    return lexicon(
+    return lex(
         "delete", delete@:bind(maneuver),
         "departure_time", departure_time@:bind(maneuver),
         "deltav", get_deltav@:bind(maneuver),
@@ -68,7 +68,7 @@ local function osv_at_destination_soi {
                 set arrival_velocity to arrival_velocity - adjustment.
             }
 
-            return lexicon(
+            return lex(
                 "success", true,
                 "time", arrival_time,
                 "velocity", arrival_velocity
@@ -76,7 +76,7 @@ local function osv_at_destination_soi {
         }
     }
 
-    return lexicon("success", false).
+    return lex("success", false).
 }
 
 local function distance_to_periapsis {
@@ -120,9 +120,11 @@ local function time_to_periapsis {
         set orbit to orbit:nextpatch.
 
         if orbit:body = destination {
-
             local result is rsvp:line_search(cost@, start_time, 21600, 1, 0.5).
-            set periapsis_details to lexicon("time", result:position:x, "altitude", result:minimum - destination:radius).
+            set periapsis_details to lex(
+                "time", result:position:x,
+                "altitude", result:minimum - destination:radius
+            ).
         }
     }
 

@@ -3,7 +3,7 @@
 // Local functions are added to this lexicon by the "export" method
 // in order to make them available to other scripts
 // while preventing pollution of the global namespace.
-global rsvp is lexicon().
+global rsvp is lex().
 
 import("lambert.ks").
 import("maneuver.ks").

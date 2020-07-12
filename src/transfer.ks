@@ -4,7 +4,7 @@ parameter export.
 export("find_launch_window", find_launch_window@).
 
 local function find_launch_window {
-    parameter destination, options is lexicon().
+    parameter destination, options is lex().
 
     local result is rsvp:validate_parameters(destination, options).
 
@@ -67,7 +67,7 @@ local function find_launch_window {
 
             if periapsis_details <> "max" {
                 // TODO: Move to "maneuver.ks"
-                local foo is lexicon("dv2", arrival:velocity).
+                local foo is lex("dv2", arrival:velocity).
                 local bar is get_insertion_deltav_function(destination, settings).
                 local qux is bar(destination, periapsis_details:altitude, foo).
 
@@ -139,7 +139,7 @@ local function get_insertion_deltav_function {
     parameter destination, settings.
 
     local key is choose settings:final_orbit_type if destination:istype("body") else "vessel".
-    local values is lexicon(
+    local values is lex(
         "vessel", rsvp:vessel_insertion_deltav,
         "circular", rsvp:circular_insertion_deltav,
         "elliptical", rsvp:elliptical_insertion_deltav,

@@ -80,7 +80,7 @@ local function coordinate_descent {
         }
     }
 
-    return lexicon("position", position, "minimum", minimum).
+    return lex("position", position, "minimum", minimum).
 }
 
 // Local search algorithms such as hill climbing, gradient descent or
@@ -108,7 +108,7 @@ local function iterated_local_search {
     // scalar to a string then compares them lexicographically.
     // This means that *any* number will always be less than the string "max"
     // as "m" is a higher codepoint than the numeric digits 0-9.
-    local result is lexicon("total_deltav", "max").
+    local result is lex("total_deltav", "max").
     local invocations is 0.
 
     for x in range(earliest_departure, latest_departure, search_interval) {
@@ -154,11 +154,12 @@ local function iterated_local_search {
         }
 
         if total_deltav < result:total_deltav {
-            set result to lexicon().
-            result:add("departure_time", departure_time).
-            result:add("arrival_time", arrival_time).
-            result:add("total_deltav", total_deltav).
-            result:add("flip_direction", flip_direction).
+            set result to lex(
+                "departure_time", departure_time,
+                "arrival_time", arrival_time,
+                "total_deltav", total_deltav,
+                "flip_direction", flip_direction
+            ).
         }
     }
 

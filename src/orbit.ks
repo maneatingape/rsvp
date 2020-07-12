@@ -50,7 +50,7 @@ local function transfer_deltav {
     local dv1 is solution:v1 - osv1:velocity.
     local dv2 is osv2:velocity - solution:v2.
 
-    return lexicon("dv1", dv1, "dv2", dv2, "osv1", osv1).
+    return lex("dv1", dv1, "dv2", dv2, "osv1", osv1).
 }
 
 // Returns the cartesian orbital state vectors of position and velocity
@@ -67,7 +67,7 @@ local function orbital_state_vectors {
     // body, so no further adjustment is needed.
     local velocity is velocityat(orbitable, epoch_time):orbit.
 
-    return lexicon("position", position, "velocity", velocity).
+    return lex("position", position, "velocity", velocity).
 }
 
 // Returns the vector projection of a velocity vector onto the given orbital
@@ -213,10 +213,10 @@ local function impact_parameter_offset {
     local normal is vcrs(osv:velocity, osv:position):normalized.
     local radial is vcrs(normal, arrival_velocity):normalized.
 
-    local orientation_vectors is lexicon("prograde", radial, "polar", normal, "retrograde", -radial).
+    local orientation_vectors is lex("prograde", radial, "polar", normal, "retrograde", -radial).
     local offset_vector is orientation_vectors[orientation].
 
-    return lexicon("factor", b, "vector", offset_vector).
+    return lex("factor", b, "vector", offset_vector).
 }
 
 // Calculate the delta-v required to convert a hyperbolic intercept orbit

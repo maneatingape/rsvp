@@ -84,7 +84,7 @@ local function lambert {
     local v1 is (gamma / m1) * (vr1 * ir1 + vt * it1).
     local v2 is (gamma / m2) * (vr2 * ir2 + vt * it2).
 
-    return lexicon("v1", v1, "v2", v2).
+    return lex("v1", v1, "v2", v2).
 }
 
 // Helper function to run iterative root finding algorithms.
