@@ -17,7 +17,7 @@ local function create_maneuver {
         "patch_time", patch_time@:bind(maneuver),
         "osv_at_destination_soi", osv_at_destination_soi@:bind(destination, maneuver),
         "distance_to_periapsis", distance_to_periapsis@:bind(destination, maneuver),
-        "time_to_periapsis", time_to_periapsis@:bind(destination, maneuver)
+        "details_at_periapsis", details_at_periapsis@:bind(destination, maneuver)
     ).
 }
 
@@ -34,20 +34,20 @@ local function departure_time {
 }
 
 local function get_deltav {
-    parameter maneuver.    
+    parameter maneuver.
 
     return maneuver:deltav:mag.
 }
 
 // TODO: There may be a accidental moon intercept.
 local function patch_time {
-    parameter maneuver.    
+    parameter maneuver.
 
     return time():seconds + maneuver:orbit:nextpatcheta.
 }
 
-// Returns the predicted time and velocity of the ship when it will enter
-// the destination's SOI.
+// Returns the predicted time and velocity of the ship at the exact moment
+// when it will enter the destination's SOI.
 local function osv_at_destination_soi {
     parameter destination, maneuver.
 
@@ -81,6 +81,10 @@ local function osv_at_destination_soi {
 
 local function distance_to_periapsis {
     parameter destination, maneuver, final_orbit_periapsis.
+// Returns the altitude at destination periapsis. Searches all orbit patches
+// in case user has increased CONIC_PATCH_LIMIT and there is an accidental moon
+// intercept. For example if destination is Duna but Ike gets in the way, then
+// there will be *two* orbit patches for Duna, each with different periapsis.
 
     local orbit is maneuver:orbit.
 
@@ -95,14 +99,14 @@ local function distance_to_periapsis {
     return "max".
 }
 
-// TODO: There may be a accidental moon intercept.
-// or not enough patches to get and "exit" point for average.
-local function time_to_periapsis {
+local function details_at_periapsis {
     parameter destination, maneuver.
 
     local orbit is maneuver:orbit.
     local periapsis_details is "max".
 
+    // The "positionat" function behaves differently between planets and moons
+    // when predicting their future position relative to the ship.
     function planet_cost {
         parameter v.
         return (positionat(ship, v:x) - destination:position):mag.
@@ -120,7 +124,7 @@ local function time_to_periapsis {
         set orbit to orbit:nextpatch.
 
         if orbit:body = destination {
-            local result is rsvp:line_search(cost@, start_time, 21600, 1, 0.5).
+            local result is rsvp:line_search(cost@, start_time, 21600, 1).
             set periapsis_details to lex(
                 "time", result:position:x,
                 "altitude", result:minimum - destination:radius

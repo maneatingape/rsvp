@@ -1,194 +1,227 @@
 @lazyglobal off.
 
 parameter export.
-export("find_launch_window", find_launch_window@).
+export("vessel_to_vessel", vessel_to_vessel@).
+export("vessel_to_body", vessel_to_body@).
+export("body_to_vessel", body_to_vessel@).
+export("body_to_body", body_to_body@).
 
-local function find_launch_window {
-    parameter destination, options is lex().
+// Vessel to vessel rendezvous (asteroids and comets also technically count
+// as vessels) within the same SOI is the most straightforward case. The values
+// from the Lambert solver are more than accurate enough to be used directly
+// resulting in very precise intercepts, even over interplantery distances.
+local function vessel_to_vessel {
+    parameter destination, settings, result.
 
-    local result is rsvp:validate_parameters(destination, options).
+    // Calculate transfer orbit details from search result
+    local flip_direction is result:transfer:flip_direction.
+    local departure_time is result:transfer:departure_time.
+    local arrival_time is result:transfer:arrival_time.
+    local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time).
 
-    if not result:success {
-        print result:value.
-        return result.
+    // 1st node
+    create_vessel_node("n/a", departure_time, details:dv1).
+    local departure is lex("time", departure_time, "deltav", details:dv1:mag).
+    result:add("actual", lex("departure", departure)).
+
+    // 2nd node
+    if settings:create_maneuver_nodes = "both" {
+        create_vessel_node("n/a", arrival_time, details:dv2).
+        local arrival is lex("time", arrival_time, "deltav", details:dv2:mag).
+        result:actual:add("arrival", arrival).
     }
-
-    local settings is result:value.
-    local transfer is find_transfer(destination, settings).
-
-    set result to lexicon().
-    result:add("success", true).
-    result:add("estimated_departure_time", transfer:departure_time).
-    result:add("estimated_arrival_time", transfer:arrival_time).
-    result:add("estimated_total_deltav", transfer:total_deltav).
-
-    // First check point. If no nodes are requests then we're done.
-    if settings:create_maneuver_nodes = "none" return result.
-
-    local maneuver is from_origin(destination, settings, transfer, v(0, 0, 0)).
-
-    // If the destination is a vessel (including asteroids or comets) then our
-    // intercept is already accurate enough and maneuver refinement has no benefit.
-    //
-    // For planets, our intercept is usually *too* accurate that it hits the planet
-    // dead center, which is not usually what you want. So we tweak the intercept
-    // in order to approximate the desired periapsis in a prograde direction.
-    if destination:istype("body") {
-        if settings:origin_is_body {
-            local arrival is maneuver:osv_at_destination_soi().
-        
-            if arrival:success {
-                local offset is rsvp:impact_parameter_offset(destination, arrival:time, arrival:velocity, settings:final_orbit_periapsis, settings:final_orbit_orientation).
-                maneuver:delete().
-                set maneuver to from_origin(destination, settings, transfer, offset:factor * offset:vector).
-            }
-
-        }
-        else {
-            local arrival is maneuver:osv_at_destination_soi().
-            local offset is rsvp:impact_parameter_offset(destination, arrival:time, arrival:velocity, settings:final_orbit_periapsis, settings:final_orbit_orientation).
-
-            function cost {
-                parameter v.
-
-                maneuver:delete().
-                set maneuver to from_origin(destination, settings, transfer, v:x * offset:vector).
-
-                return maneuver:distance_to_periapsis(settings:final_orbit_periapsis).
-            }
-
-            local result is rsvp:line_search(cost@, offset:factor, 0.25 * offset:factor, 100, 0.5).
-            cost(result:position).
-        }
-
-        if settings:create_maneuver_nodes = "both" {
-            local arrival is maneuver:osv_at_destination_soi().
-            local periapsis_details is maneuver:time_to_periapsis().
-
-            if periapsis_details <> "max" {
-                // TODO: Move to "maneuver.ks"
-                local foo is lex("dv2", arrival:velocity).
-                local bar is get_insertion_deltav_function(destination, settings).
-                local qux is bar(destination, periapsis_details:altitude, foo).
-
-                add node(periapsis_details:time, 0, 0, -qux).
-            }
-            else {
-                // TODO: Handle error case.
-            }
-        }        
-    }
-
-    result:add("actual_departure_time", maneuver:departure_time()).
-    result:add("actual_ejection_deltav", maneuver:deltav()).
 
     return result.
 }
 
-local function find_transfer {
-    parameter destination, settings.
+// Vessel to body rendezvous requires some tweaking in order for the ship
+// to avoid colliding directly with the center of the destination.
+local function vessel_to_body {
+    parameter destination, settings, result.
 
-    local origin is choose ship:body if settings:origin_is_body else ship.
+    // Calculate transfer orbit details from search result
+    local flip_direction is result:transfer:flip_direction.
+    local departure_time is result:transfer:departure_time.
+    local arrival_time is result:transfer:arrival_time.
+    local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time).
 
-    local verbose is settings:verbose.
+    // Create initial approximate maneuver node. This node will be *too* accurate
+    // with a trajectory that collides with the center of the body.
+    local maneuver is create_vessel_node(destination, departure_time, details:dv1).
 
-    local earliest_departure is settings:earliest_departure.
-    if earliest_departure = "default" {
-        set earliest_departure to time():seconds + 120.
-    }
-
-    local search_duration is settings:search_duration.
-    if search_duration = "default" {
-        local max_period is rsvp:max_period(origin, destination).
-        local synodic_period is rsvp:synodic_period(origin, destination).
-        set search_duration to max(max_period, synodic_period).
-    }
-
-    local max_time_of_flight is settings:max_time_of_flight.
-    if max_time_of_flight = "default" {
-        set max_time_of_flight to rsvp:ideal_hohmann_transfer_period(origin, destination).
-    }
-
-    local min_period is rsvp:min_period(origin, destination).
-    local search_interval is 0.5 * min_period.
-    local search_threshold is max(120, min(0.001 * min_period, 3600)).
-
-    local transfer_details is rsvp:transfer_deltav:bind(origin, destination).
-    local ejection_deltav is choose rsvp:equatorial_ejection_deltav if settings:origin_is_body else rsvp:vessel_ejection_deltav.
-    
-    local initial_orbit_periapsis is max(ship:periapsis, 0).
+    // Using our arrival velocity at the edge of the destination's SOI, calculate
+    // an initial guess for the "impact parameter", that is the distance that
+    // we should offset in order to miss by roughly our desired periapsis.
     local final_orbit_periapsis is settings:final_orbit_periapsis.
+    local final_orbit_orientation is settings:final_orbit_orientation.
+    local soi_edge is maneuver:osv_at_destination_soi().
+    local impact_parameter is rsvp:impact_parameter(destination, soi_edge:time, soi_edge:velocity, final_orbit_periapsis, final_orbit_orientation).
 
-    local insertion_deltav is get_insertion_deltav_function(destination, settings).
+    // Refine our initial guess using a one-dimensional line search with feedback.
+    local initial_guess is impact_parameter:factor.
+    local step_size is 0.25 * initial_guess.
+    local step_threshold is 100.
+    local search is rsvp:line_search(cost@, initial_guess, step_size, step_threshold).
 
-    function total_deltav {
-        parameter flip_direction, departure_time, time_of_flight.
+    function cost {
+        parameter v.
 
-        local arrival_time is departure_time + time_of_flight.
-        local details is transfer_details(flip_direction, departure_time, arrival_time).
-        local ejection is ejection_deltav(origin, initial_orbit_periapsis, details).
-        local insertion is insertion_deltav(destination, final_orbit_periapsis, details).
+        // Delete previous maneuver as it will affect orbit prediction.
+        maneuver:delete().
+        // Predict trajectory to destination, offset by test candidate vector.
+        local candidate is v:x * impact_parameter:vector.
+        local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time, ship:body, candidate).
+        set maneuver to create_vessel_node(destination, departure_time, details:dv1).
 
-        return ejection + insertion.
+        return maneuver:distance_to_periapsis(final_orbit_periapsis).
     }
 
-    return rsvp:iterated_local_search(verbose, earliest_departure, search_duration, max_time_of_flight, search_interval, search_threshold, total_deltav@).
-}
+    // Make sure maneuver node is last best position.
+    cost(search:position).
 
-local function get_insertion_deltav_function {
-    parameter destination, settings.
+    // Add actual departure deltav to the result. This will differ slightly
+    // from the predicted value due to the offset tweaks.
+    local departure is lex("time", departure_time, "deltav", maneuver:deltav()).
+    result:add("actual", lex("departure", departure)).
 
-    local key is choose settings:final_orbit_type if destination:istype("body") else "vessel".
-    local values is lex(
-        "vessel", rsvp:vessel_insertion_deltav,
-        "circular", rsvp:circular_insertion_deltav,
-        "elliptical", rsvp:elliptical_insertion_deltav,
-        "none", rsvp:no_insertion_deltav
-    ).
-
-    return values[key].
-}
-
-local function from_origin {
-    parameter destination, settings, transfer, offset.
-
-    local flip_direction is transfer:flip_direction.
-    local departure_time is transfer:departure_time.
-    local arrival_time is transfer:arrival_time.
-
-    if settings:origin_is_body {
-        return from_body(destination, flip_direction, departure_time, arrival_time, offset).
+    // 2nd node
+    if settings:create_maneuver_nodes = "both" {
+        local arrival is create_body_arrival_node(destination, settings, maneuver).
+        result:actual:add("arrival", arrival).
     }
-    else {
-        return from_vessel(destination, flip_direction, departure_time, arrival_time, offset).
+
+    return result.
+}
+
+// Vessel to body rendezvous is not as accurate as other transfer types, so a
+// correction burn is recommended once in interplanetary space.
+function body_to_vessel {
+    parameter destination, settings, result.
+
+    // 1st node
+    local flip_direction is result:transfer:flip_direction.
+    local departure_time is result:transfer:departure_time.
+    local arrival_time is result:transfer:arrival_time.
+    local maneuver is create_body_departure_node(destination, flip_direction, departure_time, arrival_time).
+
+    // Add actual departure deltav to the result. This will differ quite a bit
+    // from the predicted value due to the difficulties ejecting from a body
+    // exactly at the predicted time and orientation.
+    local departure is lex("time", maneuver:departure_time(), "deltav", maneuver:deltav()).
+    result:add("actual", lex("departure", departure)).
+
+    // 2nd node
+    if settings:create_maneuver_nodes = "both" {
+        local osv1 is rsvp:orbital_state_vectors(ship, arrival_time).
+        local osv2 is rsvp:orbital_state_vectors(destination, arrival_time).
+        local deltav is osv2:velocity - osv1:velocity.
+        create_vessel_node("n/a", arrival_time, deltav).
+
+        local arrival is lex("time", arrival_time, "deltav", deltav:mag).
+        result:actual:add("arrival", arrival).
     }
+
+    return result.
 }
 
-local function from_vessel {
-    parameter destination, flip_direction, departure_time, arrival_time, offset.
+// Body to body rendezvous is reasonably accurate as the predicted intercept
+// can be used to refine the initial transfer.
+local function body_to_body {
+    parameter destination, settings, result.
 
-    local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time, ship:body, offset).
-    local osv is rsvp:orbital_state_vectors(ship, departure_time).
-    local projection is rsvp:maneuver_node_vector_projection(osv, details:dv1).
+    // 1st node
+    local flip_direction is result:transfer:flip_direction.
+    local departure_time is result:transfer:departure_time.
+    local arrival_time is result:transfer:arrival_time.
+    local maneuver is create_body_departure_node(destination, flip_direction, departure_time, arrival_time).
 
-    return rsvp:create_maneuver(destination, departure_time, projection).
+    // Using our arrival velocity at the edge of the destination's SOI, calculate
+    // an initial guess for the "impact parameter", that is the distance that
+    // we should offset in order to miss by roughly our desired periapsis.
+    local final_orbit_periapsis is settings:final_orbit_periapsis.
+    local final_orbit_orientation is settings:final_orbit_orientation.
+    local soi_edge is maneuver:osv_at_destination_soi().
+    local impact_parameter is rsvp:impact_parameter(destination, soi_edge:time, soi_edge:velocity, final_orbit_periapsis, final_orbit_orientation).
+
+    // Adjust the intercept *once* using the initial impact parameter estimate.
+    // Unlike the vessel_to_body case, an interative search provides no real
+    // benefit and frequently makes things worse.
+    // For most planets this gets reasonably close (within ~20%). If a more
+    // precise transfer is needed then a followup correction burn can be
+    // calculated once in interplantery space using the vessel_to_body function.
+    local offset is impact_parameter:factor * impact_parameter:vector.
+    maneuver:delete().
+    set maneuver to create_body_departure_node(destination, flip_direction, departure_time, arrival_time, offset).
+
+    // Add actual departure deltav to the result. This will differ somewhat
+    // from the predicted value due to the difficulties ejecting from a body
+    // exactly at the predicted time and orientation.
+    local departure is lex("time", maneuver:departure_time(), "deltav", maneuver:deltav()).
+    result:add("actual", lex("departure", departure)).
+
+    // 2nd node
+    if settings:create_maneuver_nodes = "both" {
+        local arrival is create_body_arrival_node(destination, settings, maneuver).
+        result:actual:add("arrival", arrival).
+    }
+
+    return result.
 }
 
-local function from_body {
-    parameter destination, flip_direction, departure_time, arrival_time, offset.
+// Creates both departure and arrival nodes for vessels, as the steps are the
+// same for both situations.
+local function create_vessel_node {
+    parameter destination, epoch_time, deltav.
 
-    local delta is v(1, 0, 0).
-    local iterations is 0.
+    local osv is rsvp:orbital_state_vectors(ship, epoch_time).
+    local projection is rsvp:maneuver_node_vector_projection(osv, deltav).
+
+    return rsvp:create_maneuver(destination, epoch_time, projection).
+}
+
+// Create an arrival node for a body, using the various "final_orbit..."
+// setttings to result in the desired orbit periapsis and shape.
+local function create_body_arrival_node {
+    parameter destination, settings, maneuver.
+
+    local soi_edge is maneuver:osv_at_destination_soi().
+    local periapsis is maneuver:details_at_periapsis().
+
+    // TODO: Handle error case
+    local insertion is rsvp:get_insertion_deltav_function(settings).
+    local deltav is insertion(destination, periapsis:altitude, soi_edge:velocity).
+
+    // Brake by the right amount at the right time.
+    add node(periapsis:time, 0, 0, -deltav).
+
+    return lex("time", periapsis:time, "deltav", deltav).
+}
+
+// Creates an ejection maneuver node by applying a feedback loop to refine it.
+// The initial transfer will be incorrect as it assumes that the vessel
+// is floating in free space and neglects the time taken to climb out of the
+// origin planet's SOI.
+// We re-calculate the transfer immediately after leaving the origin's SOI
+// then feedback this error in order to correct our initial guess. This
+// converges rapidly to an accurate intercept.
+local function create_body_departure_node {
+    parameter destination, flip_direction, departure_time, arrival_time, offset is v(0, 0, 0).
 
     // TODO: flip_direction can't be trusted
+    // Initial guess
     local details is rsvp:transfer_deltav(ship:body, destination, flip_direction, departure_time, arrival_time, ship:body:body, offset).
     local departure_deltav is details:dv1.
     local maneuver is create_maneuver_node_in_correct_location(destination, departure_time, departure_deltav).
 
+    local delta is v(1, 0, 0).
+    local iterations is 0.
+
     until delta:mag < 0.001 or iterations = 15 {
+        // Calculate correction using predicted flight path
         local patch_time is maneuver:patch_time().
         local details is rsvp:transfer_deltav(ship, destination, flip_direction, patch_time, arrival_time, ship:body:body, offset).
 
+        // Update our current departure velocity with this correction.
         set delta to details:dv1.
         set iterations to iterations + 1.
         set departure_time to maneuver:departure_time().
@@ -228,8 +261,9 @@ local function create_maneuver_node_in_correct_location {
     }
 
     // Search for time in ship's orbit where ejection deltav is lowest.
+    local cost is ejection_details@:bind(true).
+    local result is rsvp:line_search(cost, departure_time, 120, 1).
     // Ejection velocity projected onto ship prograde, normal and radial vectors.
-    local result is rsvp:line_search(ejection_details@:bind(true), departure_time, 120, 1, 0.5).
     local projection is ejection_details(false, result:position).
 
     return rsvp:create_maneuver(destination, result:position:x, projection).

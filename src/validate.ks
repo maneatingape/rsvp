@@ -3,6 +3,7 @@
 parameter export.
 export("validate_parameters", validate_parameters@).
 
+// Default value and validation function for each possible option key.
 local delegates is lex(
     "verbose", list(false, validate_boolean@),
     "earliest_departure", list("default", validate_scalar@),
@@ -62,10 +63,17 @@ local function validate_prerequisites {
 local function validate_orbital_constraints {
     parameter destination, settings, problem.
 
-    if not destination:istype("orbitable") {
+    if destination:istype("vessel") {
+        settings:add("destination_is_vessel", true).
+    }
+    else if destination:istype("body") {
+        settings:add("destination_is_vessel", false).
+    }
+    else {
         problem("Parameter 'destination' is not expected type Orbitable (Vessels and Bodies)").
         return.
     }
+
     if not destination:hasbody {
         problem( "Destination '" + origin:name + "' is not orbiting a parent body.").
         return.
@@ -75,11 +83,11 @@ local function validate_orbital_constraints {
         problem("'origin' and 'destination' must be different").
     }
 
-    if ship:body = destination:body {        
-        settings:add("origin_is_body", false).
+    if ship:body = destination:body {
+        settings:add("origin_is_vessel", true).
     }
     else if ship:body:hasbody and ship:body:body = destination:body {
-        settings:add("origin_is_body", true).
+        settings:add("origin_is_vessel", false).
     }
     else {
         problem("Destination '" + destination:name + "' is not orbiting a direct common parent or grandparent of ship").

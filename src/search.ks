@@ -1,86 +1,92 @@
 @lazyglobal off.
 
 parameter export.
+export("find_transfer", find_transfer@).
 export("line_search", line_search@).
-export("iterated_local_search", iterated_local_search@).
+// TODO: Get rid of this?
+export("get_insertion_deltav_function", get_insertion_deltav_function@).
 
-// Convenience wrapper for searching only a single dimension.
-local function line_search {
-    parameter cost, x, step_size, step_threshold, step_factor.
+local one_dimension is list(v(1, 0, 0), v(-1, 0, 0)).
+local two_dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
 
-    local dimensions is list(v(1, 0, 0), v(-1, 0, 0)).
-    local position is v(x, 0, 0).
-    local minimum is cost(position).
+local function find_transfer {
+    parameter destination, settings.
 
-    return coordinate_descent(dimensions, cost, position, minimum, step_size, step_threshold, step_factor).
-}
+    local origin is choose ship if settings:origin_is_vessel else ship:body.
 
-// Convenience wrapper for searching two dimensions.
-local function grid_search {
-    parameter cost, x, y, minimum, step_size, step_threshold.
+    local verbose is settings:verbose.
 
-    local dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
-    local position is v(x, y, 0).
-    local step_factor is 0.5.
-
-    return coordinate_descent(dimensions, cost, position, minimum, step_size, step_threshold, step_factor).
-}
-
-// Coordinate descent is a variant of the hill climbing algorithm, where only
-// one dimension (x, y or z) is minimized at a time. This algorithm implements
-// this with a simple binary search like approach, with a configurable step
-// reduction factor. This converges reasonable quickly wihout too many
-// invocations of the "cost" function.
-//
-// The approach is:
-// (1) Choose an initial starting position
-// (2) Determine the lowest cost at a point "step_size" distance away, looking
-//     in both positive and negative directions on the x, y and z axes.
-// (3) Continue in this direction until the cost increases
-// (4) Reduce the step size by the step factor, terminating if below the
-//     threshold, then go to step (2)
-local function coordinate_descent {
-    parameter dimensions, cost, position, minimum, step_size, step_threshold, step_factor.
-
-    local next_position is position.
-    local direction is "none".
-
-    local function test {
-        parameter test_direction.
-
-        local test_position is position + step_size * test_direction.
-        local test_cost is cost(test_position).
-
-        if test_cost < minimum {
-            set minimum to test_cost.
-            set next_position to test_position.
-            set direction to test_direction.
-        }
-        // Stop if we are currently line searching.
-        else if direction = test_direction {
-            set direction to "none".
-        }
+    local earliest_departure is settings:earliest_departure.
+    if earliest_departure = "default" {
+        set earliest_departure to time():seconds + 120.
     }
 
-    until step_size < step_threshold {
-        if direction = "none" {
-            for test_direction in dimensions {
-                test(test_direction).
-            }
-        }
-        else {
-            test(direction).
-        }
-
-        if direction = "none" {
-            set step_size to step_size * step_factor.
-        }
-        else {
-            set position to next_position.
-        }
+    local search_duration is settings:search_duration.
+    if search_duration = "default" {
+        local max_period is rsvp:max_period(origin, destination).
+        local synodic_period is rsvp:synodic_period(origin, destination).
+        set search_duration to max(max_period, synodic_period).
     }
 
-    return lex("position", position, "minimum", minimum).
+    local max_time_of_flight is settings:max_time_of_flight.
+    if max_time_of_flight = "default" {
+        set max_time_of_flight to rsvp:ideal_hohmann_transfer_period(origin, destination).
+    }
+
+    local min_period is rsvp:min_period(origin, destination).
+    local search_interval is 0.5 * min_period.
+    local search_threshold is max(120, min(0.001 * min_period, 3600)).
+
+    local transfer_deltav is rsvp:transfer_deltav:bind(origin, destination).
+    local ejection_deltav is choose rsvp:vessel_ejection_deltav if settings:origin_is_vessel else rsvp:equatorial_ejection_deltav.
+    local insertion_deltav is choose rsvp:vessel_insertion_deltav if settings:destination_is_vessel else get_insertion_deltav_function(settings).
+
+    local initial_orbit_periapsis is max(ship:periapsis, 0).
+    local final_orbit_periapsis is settings:final_orbit_periapsis.
+
+
+    function transfer_details {
+        parameter flip_direction, departure_time, arrival_time.
+
+        local details is transfer_deltav(flip_direction, departure_time, arrival_time).
+        local ejection is ejection_deltav(origin, initial_orbit_periapsis, details).
+        local insertion is insertion_deltav(destination, final_orbit_periapsis, details:dv2).
+
+        return lex("ejection", ejection, "insertion", insertion).
+    }
+
+    function transfer_cost {
+        parameter flip_direction, departure_time, time_of_flight.
+
+        local arrival_time is departure_time + time_of_flight.
+        local details is transfer_details(flip_direction, departure_time, arrival_time).
+
+        return details:ejection + details:insertion.
+    }
+
+    local transfer is iterated_local_search(verbose, earliest_departure, search_duration, max_time_of_flight, search_interval, search_threshold, transfer_cost@).
+    local details is transfer_details(transfer:flip_direction, transfer:departure_time, transfer:arrival_time).
+
+    // Construct nested result structure
+    local departure is lex("time", transfer:departure_time, "deltav", details:ejection).
+    local arrival is lex("time", transfer:arrival_time, "deltav", details:insertion).
+    local predicted is lex("departure", departure, "arrival", arrival).
+    // TODO: Can transfer be removed?
+    local result to lex("success", true, "predicted", predicted, "transfer", transfer).
+
+    return result.
+}
+
+local function get_insertion_deltav_function {
+    parameter settings.
+
+    local values is lex(
+        "circular", rsvp:circular_insertion_deltav,
+        "elliptical", rsvp:elliptical_insertion_deltav,
+        "none", rsvp:no_insertion_deltav
+    ).
+
+    return values[settings:final_orbit_type].
 }
 
 // Local search algorithms such as hill climbing, gradient descent or
@@ -174,10 +180,86 @@ local function iterated_local_search {
     return result.
 }
 
+// Convert epoch seconds to human readable string.
 local function seconds_to_kerbin_time {
     parameter seconds.
 
     local timespan is time(seconds).
 
     return timespan:calendar + " " + timespan:clock.
+}
+
+// Convenience wrapper for searching a single dimension.
+local function line_search {
+    parameter cost, x, step_size, step_threshold.
+
+    local position is v(x, 0, 0).
+    local minimum is cost(position).
+
+    return coordinate_descent(one_dimension, cost, position, minimum, step_size, step_threshold).
+}
+
+// Convenience wrapper for searching two dimensions.
+local function grid_search {
+    parameter cost, x, y, minimum, step_size, step_threshold.
+
+    local position is v(x, y, 0).
+
+    return coordinate_descent(two_dimensions, cost, position, minimum, step_size, step_threshold).
+}
+
+// Coordinate descent is a variant of the hill climbing algorithm, where only
+// one dimension (x, y or z) is minimized at a time. This algorithm implements
+// this with a simple binary search approach. This converges reasonable quickly
+// wihout too many invocations of the "cost" function.
+//
+// The approach is:
+// (1) Choose an initial starting position
+// (2) Determine the lowest cost at a point "step_size" distance away, looking
+//     in both positive and negative directions on the x, y and z axes.
+// (3) Continue in this direction until the cost increases
+// (4) Reduce the step size by half, terminating if below the threshold
+//     then go to step (2)
+local function coordinate_descent {
+    parameter dimensions, cost, position, minimum, step_size, step_threshold.
+
+    local next_position is position.
+    local direction is "none".
+
+    local function test {
+        parameter test_direction.
+
+        local test_position is position + step_size * test_direction.
+        local test_cost is cost(test_position).
+
+        if test_cost < minimum {
+            set minimum to test_cost.
+            set next_position to test_position.
+            set direction to test_direction.
+        }
+        // Stop if we are currently line searching.
+        else if direction = test_direction {
+            set direction to "none".
+        }
+    }
+
+    until step_size < step_threshold {
+        if direction = "none" {
+            for test_direction in dimensions {
+                test(test_direction).
+            }
+        }
+        else {
+            test(direction).
+        }
+
+        if direction = "none" {
+            set step_size to step_size * 0.5.
+        }
+        else {
+            set position to next_position.
+        }
+    }
+
+    return lex("position", position, "minimum", minimum).
 }

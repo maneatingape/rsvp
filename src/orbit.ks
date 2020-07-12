@@ -6,7 +6,7 @@ export("orbital_state_vectors", orbital_state_vectors@).
 export("maneuver_node_vector_projection", maneuver_node_vector_projection@).
 export("equatorial_ejection_deltav", equatorial_ejection_deltav@).
 export("vessel_ejection_deltav_from_body", vessel_ejection_deltav_from_body@).
-export("impact_parameter_offset", impact_parameter_offset@).
+export("impact_parameter", impact_parameter@).
 export("circular_insertion_deltav", orbit_insertion_deltav@:bind(true)).
 export("elliptical_insertion_deltav", orbit_insertion_deltav@:bind(false)).
 export("vessel_ejection_deltav", vessel_ejection_deltav@).
@@ -195,7 +195,7 @@ local function vessel_ejection_deltav_from_body {
 // a good initial guess when tweaking the intercept for a desired periapsis.
 // This figure is used to scale a vector offset from the planet's center that
 // will result in an orbit periapsis in the correct location.
-local function impact_parameter_offset {
+local function impact_parameter {
     parameter destination, arrival_time, arrival_velocity, altitude, orientation.
 
     local mu is destination:mu.
@@ -254,7 +254,7 @@ local function impact_parameter_offset {
 // Taking the square root of equation 5 then subtracting 'v1" gives the delta-v
 // required to capture into the desired orbit.
 local function orbit_insertion_deltav {
-    parameter is_circular, destination, altitude, transfer_details.
+    parameter is_circular, destination, altitude, arrival_velocity.
 
     local mu is destination:mu.
     local r1 is destination:radius + altitude.
@@ -263,7 +263,7 @@ local function orbit_insertion_deltav {
     local a is choose r1 if is_circular else (r1 + r2) / 2.
 
     local v1 is sqrt(mu * (2 / r1 - 1 / a)).
-    local v2 is transfer_details:dv2:mag.
+    local v2 is arrival_velocity:mag.
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
 
     return ve - v1.
@@ -278,15 +278,15 @@ local function vessel_ejection_deltav {
 }
 
 local function vessel_insertion_deltav {
-    parameter destination, altitude, transfer_details.
+    parameter destination, altitude, arrival_velocity.
 
-    return transfer_details:dv2:mag.
+    return arrival_velocity:mag.
 }
 
 // Calculates the delta-v required for a flyby, aerocapture
 // or extreme lithobrake...
 local function no_insertion_deltav {
-    parameter destination, altitude, transfer_details.
+    parameter destination, altitude, arrival_velocity.
 
     return 0.
 }
