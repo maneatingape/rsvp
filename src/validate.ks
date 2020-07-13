@@ -82,6 +82,9 @@ local function validate_orbital_constraints {
     if destination = ship {
         problem("'origin' and 'destination' must be different").
     }
+    if destination = ship:body {
+        problem("Ship is already in orbit around destination").
+    }
 
     if ship:body = destination:body {
         settings:add("origin_is_vessel", true).
