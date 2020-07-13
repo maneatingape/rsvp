@@ -196,22 +196,22 @@ local function vessel_ejection_deltav_from_body {
 // This figure is used to scale a vector offset from the planet's center that
 // will result in an orbit periapsis in the correct location.
 local function impact_parameter {
-    parameter destination, arrival_time, arrival_velocity, altitude, orientation.
+    parameter destination, encounter, altitude, orientation.
 
     local mu is destination:mu.
     local r1 is destination:radius + altitude.
     local r2 is destination:soiradius.
 
-    local v2 is arrival_velocity:mag.
+    local v2 is encounter:velocity:mag.
 
     local a is 1 / (2 / r2 - v2 ^ 2 / mu).
     local e is 1 - r1 / a.
     // Handle both hyperbolic and elliptical cases
     local b is abs(a) * sqrt(abs(1 - e ^ 2)).
 
-    local osv is orbital_state_vectors(destination, arrival_time).
+    local osv is orbital_state_vectors(destination, encounter:time).
     local normal is vcrs(osv:velocity, osv:position):normalized.
-    local radial is vcrs(normal, arrival_velocity):normalized.
+    local radial is vcrs(normal, encounter:velocity):normalized.
 
     local orientation_vectors is lex("prograde", radial, "polar", normal, "retrograde", -radial).
     local offset_vector is orientation_vectors[orientation].

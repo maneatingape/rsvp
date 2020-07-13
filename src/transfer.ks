@@ -20,13 +20,13 @@ local function vessel_to_vessel {
     local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time).
 
     // 1st node
-    create_vessel_node("n/a", departure_time, details:dv1).
+    create_vessel_node(departure_time, details:dv1).
     local departure is lex("time", departure_time, "deltav", details:dv1:mag).
     result:add("actual", lex("departure", departure)).
 
     // 2nd node
     if settings:create_maneuver_nodes = "both" {
-        create_vessel_node("n/a", arrival_time, details:dv2).
+        create_vessel_node(arrival_time, details:dv2).
         local arrival is lex("time", arrival_time, "deltav", details:dv2:mag).
         result:actual:add("arrival", arrival).
     }
@@ -47,15 +47,15 @@ local function vessel_to_body {
 
     // Create initial approximate maneuver node. This node will be *too* accurate
     // with a trajectory that collides with the center of the body.
-    local maneuver is create_vessel_node(destination, departure_time, details:dv1).
+    local maneuver is create_vessel_node(departure_time, details:dv1).
 
     // Using our arrival velocity at the edge of the destination's SOI, calculate
     // an initial guess for the "impact parameter", that is the distance that
     // we should offset in order to miss by roughly our desired periapsis.
     local final_orbit_periapsis is settings:final_orbit_periapsis.
     local final_orbit_orientation is settings:final_orbit_orientation.
-    local soi_edge is maneuver:osv_at_destination_soi().
-    local impact_parameter is rsvp:impact_parameter(destination, soi_edge:time, soi_edge:velocity, final_orbit_periapsis, final_orbit_orientation).
+    local encounter is maneuver:encounter_details(destination).
+    local impact_parameter is rsvp:impact_parameter(destination, encounter, final_orbit_periapsis, final_orbit_orientation).
 
     // Refine our initial guess using a one-dimensional line search with feedback.
     local initial_guess is impact_parameter:factor.
@@ -71,9 +71,11 @@ local function vessel_to_body {
         // Predict trajectory to destination, offset by test candidate vector.
         local candidate is v:x * impact_parameter:vector.
         local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time, ship:body, candidate).
-        set maneuver to create_vessel_node(destination, departure_time, details:dv1).
+        // Create new node then check delta between desired and actual periapsis.
+        set maneuver to create_vessel_node(departure_time, details:dv1).
+        local encounter is maneuver:encounter_details(destination).
 
-        return maneuver:distance_to_periapsis(final_orbit_periapsis).
+        return abs(final_orbit_periapsis - encounter:periapsis).
     }
 
     // Make sure maneuver node is last best position.
@@ -107,7 +109,7 @@ function body_to_vessel {
     // Add actual departure deltav to the result. This will differ quite a bit
     // from the predicted value due to the difficulties ejecting from a body
     // exactly at the predicted time and orientation.
-    local departure is lex("time", maneuver:departure_time(), "deltav", maneuver:deltav()).
+    local departure is lex("time", maneuver:time(), "deltav", maneuver:deltav()).
     result:add("actual", lex("departure", departure)).
 
     // 2nd node
@@ -115,7 +117,7 @@ function body_to_vessel {
         local osv1 is rsvp:orbital_state_vectors(ship, arrival_time).
         local osv2 is rsvp:orbital_state_vectors(destination, arrival_time).
         local deltav is osv2:velocity - osv1:velocity.
-        create_vessel_node("n/a", arrival_time, deltav).
+        create_vessel_node(arrival_time, deltav).
 
         local arrival is lex("time", arrival_time, "deltav", deltav:mag).
         result:actual:add("arrival", arrival).
@@ -140,8 +142,8 @@ local function body_to_body {
     // we should offset in order to miss by roughly our desired periapsis.
     local final_orbit_periapsis is settings:final_orbit_periapsis.
     local final_orbit_orientation is settings:final_orbit_orientation.
-    local soi_edge is maneuver:osv_at_destination_soi().
-    local impact_parameter is rsvp:impact_parameter(destination, soi_edge:time, soi_edge:velocity, final_orbit_periapsis, final_orbit_orientation).
+    local encounter is maneuver:encounter_details(destination).
+    local impact_parameter is rsvp:impact_parameter(destination, encounter, final_orbit_periapsis, final_orbit_orientation).
 
     // Adjust the intercept *once* using the initial impact parameter estimate.
     // Unlike the vessel_to_body case, an interative search provides no real
@@ -156,7 +158,7 @@ local function body_to_body {
     // Add actual departure deltav to the result. This will differ somewhat
     // from the predicted value due to the difficulties ejecting from a body
     // exactly at the predicted time and orientation.
-    local departure is lex("time", maneuver:departure_time(), "deltav", maneuver:deltav()).
+    local departure is lex("time", maneuver:time(), "deltav", maneuver:deltav()).
     result:add("actual", lex("departure", departure)).
 
     // 2nd node
@@ -171,12 +173,12 @@ local function body_to_body {
 // Creates both departure and arrival nodes for vessels, as the steps are the
 // same for both situations.
 local function create_vessel_node {
-    parameter destination, epoch_time, deltav.
+    parameter epoch_time, deltav.
 
     local osv is rsvp:orbital_state_vectors(ship, epoch_time).
     local projection is rsvp:maneuver_node_vector_projection(osv, deltav).
 
-    return rsvp:create_maneuver(destination, epoch_time, projection).
+    return rsvp:create_maneuver(epoch_time, projection).
 }
 
 // Create an arrival node for a body, using the various "final_orbit..."
@@ -184,17 +186,17 @@ local function create_vessel_node {
 local function create_body_arrival_node {
     parameter destination, settings, maneuver.
 
-    local soi_edge is maneuver:osv_at_destination_soi().
-    local periapsis is maneuver:details_at_periapsis().
+    local encounter is maneuver:encounter_details(destination).
+    local periapsis_time is maneuver:periapsis_time(destination).
 
     // TODO: Handle error case
     local insertion is rsvp:get_insertion_deltav_function(settings).
-    local deltav is insertion(destination, periapsis:altitude, soi_edge:velocity).
+    local deltav is insertion(destination, encounter:periapsis, encounter:velocity).
 
     // Brake by the right amount at the right time.
-    add node(periapsis:time, 0, 0, -deltav).
+    add node(periapsis_time, 0, 0, -deltav).
 
-    return lex("time", periapsis:time, "deltav", deltav).
+    return lex("time", periapsis_time, "deltav", deltav).
 }
 
 // Creates an ejection maneuver node by applying a feedback loop to refine it.
@@ -209,26 +211,28 @@ local function create_body_departure_node {
 
     // TODO: flip_direction can't be trusted
     // Initial guess
-    local details is rsvp:transfer_deltav(ship:body, destination, flip_direction, departure_time, arrival_time, ship:body:body, offset).
+    local grandparent is ship:body:body.
+    local details is rsvp:transfer_deltav(ship:body, destination, flip_direction, departure_time, arrival_time, grandparent, offset).
     local departure_deltav is details:dv1.
-    local maneuver is create_maneuver_node_in_correct_location(destination, departure_time, departure_deltav).
+    local maneuver is create_maneuver_node_in_correct_location(departure_time, departure_deltav).
 
     local delta is v(1, 0, 0).
     local iterations is 0.
 
     until delta:mag < 0.001 or iterations = 15 {
         // Calculate correction using predicted flight path
-        local patch_time is maneuver:patch_time().
-        local details is rsvp:transfer_deltav(ship, destination, flip_direction, patch_time, arrival_time, ship:body:body, offset).
+        local encounter is maneuver:encounter_details(grandparent).
+        local details is rsvp:transfer_deltav(ship, destination, flip_direction, encounter:time, arrival_time, grandparent, offset).
 
         // Update our current departure velocity with this correction.
         set delta to details:dv1.
         set iterations to iterations + 1.
-        set departure_time to maneuver:departure_time().
+        set departure_time to maneuver:time().
         set departure_deltav to departure_deltav + delta.
 
+        // Apply the new node, rinse and repeat.
         maneuver:delete().
-        set maneuver to create_maneuver_node_in_correct_location(destination, departure_time, departure_deltav).
+        set maneuver to create_maneuver_node_in_correct_location(departure_time, departure_deltav).
     }
 
     return maneuver.
@@ -248,7 +252,7 @@ local function create_body_departure_node {
 //
 // Finally it can handle non-perfectly circular and inclined orbits.
 local function create_maneuver_node_in_correct_location {
-    parameter destination, departure_time, departure_deltav.
+    parameter departure_time, departure_deltav.
 
     function ejection_details {
         parameter cost_only, v.
@@ -266,5 +270,5 @@ local function create_maneuver_node_in_correct_location {
     // Ejection velocity projected onto ship prograde, normal and radial vectors.
     local projection is ejection_details(false, result:position).
 
-    return rsvp:create_maneuver(destination, result:position:x, projection).
+    return rsvp:create_maneuver(result:position:x, projection).
 }
