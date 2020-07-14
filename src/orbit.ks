@@ -5,13 +5,13 @@ export("transfer_deltav", transfer_deltav@).
 export("orbital_state_vectors", orbital_state_vectors@).
 export("maneuver_node_vector_projection", maneuver_node_vector_projection@).
 export("equatorial_ejection_deltav", equatorial_ejection_deltav@).
+export("vessel_ejection_deltav", vessel_ejection_deltav@).
 export("vessel_ejection_deltav_from_body", vessel_ejection_deltav_from_body@).
 export("impact_parameter", impact_parameter@).
 export("circular_insertion_deltav", orbit_insertion_deltav@:bind(true)).
 export("elliptical_insertion_deltav", orbit_insertion_deltav@:bind(false)).
-export("vessel_ejection_deltav", vessel_ejection_deltav@).
 export("vessel_insertion_deltav", vessel_insertion_deltav@).
-export("no_insertion_deltav", no_insertion_deltav@).
+export("none_insertion_deltav", none_insertion_deltav@).
 export("ideal_hohmann_transfer_period", ideal_hohmann_transfer_period@).
 export("synodic_period", synodic_period@).
 export("max_period", max_period@).
@@ -127,6 +127,14 @@ local function equatorial_ejection_deltav {
     local ejection_deltav is sqrt(ve ^ 2 + v1 ^ 2 - 2 * ve * v1 * cos_i).
 
     return ejection_deltav.
+}
+
+// Vessels have no SOI or gravity so the delta-v required is exactly the
+// transfer orbit departure or arrival delta-v.
+local function vessel_ejection_deltav {
+    parameter origin, altitude, transfer_details.
+
+    return transfer_details:dv1:mag.
 }
 
 // Calculates the delta-v required for a vessel to eject into the desired
@@ -269,14 +277,9 @@ local function orbit_insertion_deltav {
     return ve - v1.
 }
 
+
 // Vessels have no SOI or gravity so the delta-v required is exactly the
 // transfer orbit departure or arrival delta-v.
-local function vessel_ejection_deltav {
-    parameter origin, altitude, transfer_details.
-
-    return transfer_details:dv1:mag.
-}
-
 local function vessel_insertion_deltav {
     parameter destination, altitude, arrival_velocity.
 
@@ -285,7 +288,7 @@ local function vessel_insertion_deltav {
 
 // Calculates the delta-v required for a flyby, aerocapture
 // or extreme lithobrake...
-local function no_insertion_deltav {
+local function none_insertion_deltav {
     parameter destination, altitude, arrival_velocity.
 
     return 0.

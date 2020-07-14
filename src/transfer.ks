@@ -11,12 +11,12 @@ export("body_to_body", body_to_body@).
 // from the Lambert solver are more than accurate enough to be used directly
 // resulting in very precise intercepts, even over interplantery distances.
 local function vessel_to_vessel {
-    parameter destination, settings, result.
+    parameter destination, settings, transfer, result.
 
     // Calculate transfer orbit details from search result
-    local flip_direction is result:transfer:flip_direction.
-    local departure_time is result:transfer:departure_time.
-    local arrival_time is result:transfer:arrival_time.
+    local flip_direction is transfer:flip_direction.
+    local departure_time is transfer:departure_time.
+    local arrival_time is transfer:arrival_time.
     local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time).
 
     // 1st node
@@ -37,12 +37,12 @@ local function vessel_to_vessel {
 // Vessel to body rendezvous requires some tweaking in order for the ship
 // to avoid colliding directly with the center of the destination.
 local function vessel_to_body {
-    parameter destination, settings, result.
+    parameter destination, settings, transfer, result.
 
     // Calculate transfer orbit details from search result
-    local flip_direction is result:transfer:flip_direction.
-    local departure_time is result:transfer:departure_time.
-    local arrival_time is result:transfer:arrival_time.
+    local flip_direction is transfer:flip_direction.
+    local departure_time is transfer:departure_time.
+    local arrival_time is transfer:arrival_time.
     local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time).
 
     // Create initial approximate maneuver node. This node will be *too* accurate
@@ -98,12 +98,12 @@ local function vessel_to_body {
 // Vessel to body rendezvous is not as accurate as other transfer types, so a
 // correction burn is recommended once in interplanetary space.
 function body_to_vessel {
-    parameter destination, settings, result.
+    parameter destination, settings, transfer, result.
 
     // 1st node
-    local flip_direction is result:transfer:flip_direction.
-    local departure_time is result:transfer:departure_time.
-    local arrival_time is result:transfer:arrival_time.
+    local flip_direction is transfer:flip_direction.
+    local departure_time is transfer:departure_time.
+    local arrival_time is transfer:arrival_time.
     local maneuver is create_body_departure_node(destination, flip_direction, departure_time, arrival_time).
 
     // Add actual departure deltav to the result. This will differ quite a bit
@@ -129,12 +129,12 @@ function body_to_vessel {
 // Body to body rendezvous is reasonably accurate as the predicted intercept
 // can be used to refine the initial transfer.
 local function body_to_body {
-    parameter destination, settings, result.
+    parameter destination, settings, transfer, result.
 
     // 1st node
-    local flip_direction is result:transfer:flip_direction.
-    local departure_time is result:transfer:departure_time.
-    local arrival_time is result:transfer:arrival_time.
+    local flip_direction is transfer:flip_direction.
+    local departure_time is transfer:departure_time.
+    local arrival_time is transfer:arrival_time.
     local maneuver is create_body_departure_node(destination, flip_direction, departure_time, arrival_time).
 
     // Using our arrival velocity at the edge of the destination's SOI, calculate
@@ -189,9 +189,8 @@ local function create_body_arrival_node {
     local encounter is maneuver:encounter_details(destination).
     local periapsis_time is maneuver:periapsis_time(destination).
 
-    // TODO: Handle error case
-    local insertion is rsvp:get_insertion_deltav_function(settings).
-    local deltav is insertion(destination, encounter:periapsis, encounter:velocity).
+    local insertion_deltav is rsvp[settings:final_orbit_type + "_insertion_deltav"].
+    local deltav is insertion_deltav(destination, encounter:periapsis, encounter:velocity).
 
     // Brake by the right amount at the right time.
     add node(periapsis_time, 0, 0, -deltav).

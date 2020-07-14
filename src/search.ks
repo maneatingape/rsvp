@@ -3,8 +3,6 @@
 parameter export.
 export("find_transfer", find_transfer@).
 export("line_search", line_search@).
-// TODO: Get rid of this?
-export("get_insertion_deltav_function", get_insertion_deltav_function@).
 
 local one_dimension is list(v(1, 0, 0), v(-1, 0, 0)).
 local two_dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
@@ -12,10 +10,11 @@ local two_dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
 local function find_transfer {
     parameter destination, settings.
 
+    // For vessel-to-vessel or vessel-to-body transfers the origin considered
+    // for search purposes is the vessel itself, otherwise use the parent body.
     local origin is choose ship if settings:origin_is_vessel else ship:body.
 
-    local verbose is settings:verbose.
-
+    // Calculate any default settings values
     local earliest_departure is settings:earliest_departure.
     if earliest_departure = "default" {
         set earliest_departure to time():seconds + 120.
@@ -30,20 +29,25 @@ local function find_transfer {
 
     local max_time_of_flight is settings:max_time_of_flight.
     if max_time_of_flight = "default" {
-        set max_time_of_flight to rsvp:ideal_hohmann_transfer_period(origin, destination).
+        local hohmann_period is rsvp:ideal_hohmann_transfer_period(origin, destination).
+        set max_time_of_flight to hohmann_period.
     }
 
+    // Simple rule-of-thumb for the search interval and threshold.
     local min_period is rsvp:min_period(origin, destination).
     local search_interval is 0.5 * min_period.
     local search_threshold is max(120, min(0.001 * min_period, 3600)).
 
+    // Compose orbital functions.
     local transfer_deltav is rsvp:transfer_deltav:bind(origin, destination).
-    local ejection_deltav is choose rsvp:vessel_ejection_deltav if settings:origin_is_vessel else rsvp:equatorial_ejection_deltav.
-    local insertion_deltav is choose rsvp:vessel_insertion_deltav if settings:destination_is_vessel else get_insertion_deltav_function(settings).
 
+    local prefix is choose "vessel" if settings:origin_is_vessel else "equatorial".
+    local ejection_deltav is rsvp[prefix + "_ejection_deltav"].
     local initial_orbit_periapsis is max(ship:periapsis, 0).
-    local final_orbit_periapsis is settings:final_orbit_periapsis.
 
+    set prefix to choose "vessel" if settings:destination_is_vessel else settings:final_orbit_type.
+    local insertion_deltav is rsvp[prefix + "_insertion_deltav"].
+    local final_orbit_periapsis is settings:final_orbit_periapsis.
 
     function transfer_details {
         parameter flip_direction, departure_time, arrival_time.
@@ -64,29 +68,26 @@ local function find_transfer {
         return details:ejection + details:insertion.
     }
 
-    local transfer is iterated_local_search(verbose, earliest_departure, search_duration, max_time_of_flight, search_interval, search_threshold, transfer_cost@).
+    // Find lowest deltav transfer
+    local transfer is iterated_local_search(
+        settings:verbose,
+        earliest_departure,
+        search_duration,
+        max_time_of_flight,
+        search_interval,
+        search_threshold,
+        transfer_cost@).
+
+    // Re-run the Lambert solver to obtain deltav values 
     local details is transfer_details(transfer:flip_direction, transfer:departure_time, transfer:arrival_time).
 
     // Construct nested result structure
     local departure is lex("time", transfer:departure_time, "deltav", details:ejection).
     local arrival is lex("time", transfer:arrival_time, "deltav", details:insertion).
     local predicted is lex("departure", departure, "arrival", arrival).
-    // TODO: Can transfer be removed?
-    local result to lex("success", true, "predicted", predicted, "transfer", transfer).
+    local result to lex("success", true, "predicted", predicted).
 
-    return result.
-}
-
-local function get_insertion_deltav_function {
-    parameter settings.
-
-    local values is lex(
-        "circular", rsvp:circular_insertion_deltav,
-        "elliptical", rsvp:elliptical_insertion_deltav,
-        "none", rsvp:no_insertion_deltav
-    ).
-
-    return values[settings:final_orbit_type].
+    return lex("transfer", transfer, "result", result).
 }
 
 // Local search algorithms such as hill climbing, gradient descent or

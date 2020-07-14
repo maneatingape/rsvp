@@ -19,36 +19,38 @@ local function find_launch_window {
 
     // Thoroughly check supplied parameters, options and game state for correctness.
     // Prints any validation problems found to the console then exits early.
-    local result is rsvp:validate_parameters(destination, options).
+    local maybe is rsvp:validate_parameters(destination, options).
 
-    if not result:success {
-        print result:value.
-        return result.
+    if not maybe:success {
+        print maybe:value.
+        return maybe.
     }
 
     // Find the lowest deltav cost transfer with the given settings.
-    local settings is result:value.
-    set result to rsvp:find_transfer(destination, settings).
+    local settings is maybe:value.
+    local tuple is rsvp:find_transfer(destination, settings).
+    local transfer is tuple:transfer.
+    local result is tuple:result.
 
     // If no node creation has been requested return predicted transfer details,
-    // otherwise choose betwen the 4 combinations of possible transfer type.
+    // otherwise choose betwen the 4 combinations of possible transfer types.
     if settings:create_maneuver_nodes = "none" {
         return result.
     }
     else if settings:origin_is_vessel {
         if settings:destination_is_vessel {
-            return rsvp:vessel_to_vessel(destination, settings, result).
+            return rsvp:vessel_to_vessel(destination, settings, transfer, result).
         }
         else {
-            return rsvp:vessel_to_body(destination, settings, result).
+            return rsvp:vessel_to_body(destination, settings, transfer, result).
         }
     }
     else {
         if settings:destination_is_vessel {
-            return rsvp:body_to_vessel(destination, settings, result).
+            return rsvp:body_to_vessel(destination, settings, transfer, result).
         }
         else {
-            return rsvp:body_to_body(destination, settings, result).
+            return rsvp:body_to_body(destination, settings, transfer, result).
         }
     }
 }
