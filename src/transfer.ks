@@ -178,7 +178,7 @@ local function create_vessel_node {
     local osv is rsvp:orbital_state_vectors(ship, epoch_time).
     local projection is rsvp:maneuver_node_vector_projection(osv, deltav).
 
-    return rsvp:create_maneuver(epoch_time, projection).
+    return rsvp:create_maneuver(true, epoch_time, projection).
 }
 
 // Create an arrival node for a body, using the various "final_orbit..."
@@ -269,5 +269,5 @@ local function create_maneuver_node_in_correct_location {
     // Ejection velocity projected onto ship prograde, normal and radial vectors.
     local projection is ejection_details(false, result:position).
 
-    return rsvp:create_maneuver(result:position:x, projection).
+    return rsvp:create_maneuver(false, result:position:x, projection).
 }
