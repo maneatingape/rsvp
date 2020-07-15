@@ -4,7 +4,7 @@
 // in order to make them available to other scripts while preventing pollution
 // of the global namespace.
 global rsvp is lex().
-export("find_launch_window", find_launch_window@).
+export("goto", goto@).
 
 // Add functions from all other scripts into lexicon.
 import("lambert.ks").
@@ -14,7 +14,7 @@ import("search.ks").
 import("transfer.ks").
 import("validate.ks").
 
-local function find_launch_window {
+local function goto {
     parameter destination, options is lex().
 
     // Thoroughly check supplied parameters, options and game state for correctness.
@@ -28,7 +28,7 @@ local function find_launch_window {
 
     // Find the lowest deltav cost transfer with the given settings.
     local settings is maybe:value.
-    local tuple is rsvp:find_transfer(destination, settings).
+    local tuple is rsvp:find_launch_window(destination, settings).
     local transfer is tuple:transfer.
     local result is tuple:result.
 

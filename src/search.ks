@@ -1,13 +1,13 @@
 @lazyglobal off.
 
 parameter export.
-export("find_transfer", find_transfer@).
+export("find_launch_window", find_launch_window@).
 export("line_search", line_search@).
 
 local one_dimension is list(v(1, 0, 0), v(-1, 0, 0)).
 local two_dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
 
-local function find_transfer {
+local function find_launch_window {
     parameter destination, settings.
 
     // For vessel-to-vessel or vessel-to-body transfers the origin considered
