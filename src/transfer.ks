@@ -148,6 +148,7 @@ local function body_to_body {
     local final_orbit_periapsis is settings:final_orbit_periapsis.
     local final_orbit_orientation is settings:final_orbit_orientation.
     local encounter is maneuver:encounter_details(destination).
+    local periapsis_time is maneuver:periapsis_time(destination).
     local impact_parameter is rsvp:impact_parameter(destination, encounter, final_orbit_periapsis, final_orbit_orientation).
 
     // Adjust the intercept *once* using the initial impact parameter estimate.
@@ -158,7 +159,7 @@ local function body_to_body {
     // calculated once in interplantery space using the vessel_to_body function.
     local offset is impact_parameter:factor * impact_parameter:vector.
     maneuver:delete().
-    set maneuver to create_body_departure_node(destination, flip_direction, departure_time, arrival_time, offset).
+    set maneuver to create_body_departure_node(destination, flip_direction, departure_time, periapsis_time, offset).
 
     // Add actual departure deltav to the result. This will differ somewhat
     // from the predicted value due to the difficulties ejecting from a body
@@ -213,7 +214,6 @@ local function create_body_arrival_node {
 local function create_body_departure_node {
     parameter destination, flip_direction, departure_time, arrival_time, offset is v(0, 0, 0).
 
-    // TODO: flip_direction can't be trusted
     // Initial guess
     local grandparent is ship:body:body.
     local details is rsvp:transfer_deltav(ship:body, destination, flip_direction, departure_time, arrival_time, grandparent, offset).
