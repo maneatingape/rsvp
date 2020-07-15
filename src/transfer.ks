@@ -75,7 +75,12 @@ local function vessel_to_body {
         set maneuver to create_vessel_node(departure_time, details:dv1).
         local encounter is maneuver:encounter_details(destination).
 
-        return abs(final_orbit_periapsis - encounter:periapsis).
+        if encounter <> "none" {
+            return abs(final_orbit_periapsis - encounter:periapsis).
+        }
+        else {
+            return "max".
+        }
     }
 
     // Make sure maneuver node is last best position.
