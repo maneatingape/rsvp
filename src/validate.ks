@@ -142,7 +142,7 @@ local function validate_boolean {
         settings:add(key, value).
     }
     else {
-        problems("'" + key + "'' is not a boolean, value is " + value).
+        problem("'" + key + "'' is not a boolean, value is " + value).
     }
 }
 
@@ -153,7 +153,7 @@ local function validate_scalar {
         settings:add(key, value).
     }
     else {
-        problems("'" + key + "'' is not a positive number, value is " + value).
+        problem("'" + key + "'' is not a positive number, value is " + value).
     }
 }
 
