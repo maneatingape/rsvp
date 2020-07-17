@@ -8,6 +8,7 @@ local delegates is lex(
     "verbose", list(false, validate_boolean@),
     "earliest_departure", list("default", validate_scalar@),
     "search_duration", list("default", validate_scalar@),
+    "search_interval", list("default", validate_scalar@),
     "max_time_of_flight", list("default", validate_scalar@),
     "final_orbit_periapsis", list(100000, validate_scalar@),
     "final_orbit_type", list("circular", validate_list(list("circular", "elliptical", "none"))),

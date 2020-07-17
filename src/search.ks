@@ -14,7 +14,7 @@ local function find_launch_window {
     // for search purposes is the vessel itself, otherwise use the parent body.
     local origin is choose ship if settings:origin_is_vessel else ship:body.
 
-    // Calculate any default settings values
+    // Calculate any default settings values using simple rules-of-thumb.
     local earliest_departure is settings:earliest_departure.
     if earliest_departure = "default" {
         set earliest_departure to time():seconds + 120.
@@ -33,10 +33,12 @@ local function find_launch_window {
         set max_time_of_flight to hohmann_period.
     }
 
-    // Simple rule-of-thumb for the search interval and threshold.
-    local min_period is rsvp:min_period(origin, destination).
-    local search_interval is 0.5 * min_period.
-    local search_threshold is max(120, min(0.001 * min_period, 3600)).
+    local search_interval is settings:search_interval.
+    if search_interval = "default" {
+        set search_interval to 0.5 * rsvp:min_period(origin, destination).
+    }
+
+    local search_threshold is max(120, min(0.002 * search_interval, 3600)).
 
     // Compose orbital functions.
     local transfer_deltav is rsvp:transfer_deltav:bind(origin, destination).
