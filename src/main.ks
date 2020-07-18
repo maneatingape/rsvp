@@ -22,12 +22,12 @@ local function goto {
     local maybe is rsvp:validate_parameters(destination, options).
 
     if not maybe:success {
-        print maybe:value.
+        print maybe.
         return maybe.
     }
 
     // Find the lowest deltav cost transfer with the given settings.
-    local settings is maybe:value.
+    local settings is maybe:settings.
     local tuple is rsvp:find_launch_window(destination, settings).
     local transfer is tuple:transfer.
     local result is tuple:result.
