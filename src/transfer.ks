@@ -59,7 +59,7 @@ local function vessel_to_body {
 
     // Refine our initial guess using a one-dimensional line search with feedback.
     local initial_guess is impact_parameter:factor.
-    local step_size is 0.25 * initial_guess.
+    local step_size is initial_guess.
     local step_threshold is 100.
     local search is rsvp:line_search(cost@, initial_guess, step_size, step_threshold).
 
