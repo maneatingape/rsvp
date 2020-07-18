@@ -268,7 +268,9 @@ local function orbit_insertion_deltav {
     local r1 is destination:radius + altitude.
     local r2 is destination:soiradius.
 
-    local a is choose r1 if is_circular else (r1 + r2) / 2.
+    // For elliptical orbits set apoapsis to 99% of the SOI radius
+    // in order to leave some wiggle room.
+    local a is choose r1 if is_circular else (r1 + 0.99 * r2) / 2.
 
     local v1 is sqrt(mu * (2 / r1 - 1 / a)).
     local v2 is arrival_velocity:mag.
