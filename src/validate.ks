@@ -182,7 +182,7 @@ local function validate_scalar {
             setting(key, value).
         }
         else {
-            problem(code,  "Option '" + key + "' is '" + value + "', expected positive number").
+            problem(code, "Option '" + key + "' is '" + value + "', expected positive number").
         }
     }.
 }

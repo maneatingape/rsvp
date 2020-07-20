@@ -31,7 +31,7 @@ export("lambert", lambert@).
 //   multiplication and division of intermediate variables.
 //   This operator has the highest precedence, however in some complex equations
 //   it is surrounded by parentheses in order to aid clarity.
-// * kOS syntax supports vector multiplication and addition, considerably
+// * Kerboscript syntax supports vector multiplication and addition, considerably
 //   simplifying the syntax when calculating v1 and v2.
 // * The time of flight function uses some already calculated variables from the
 //   householder function. Variable names and the signs of some formulas are
