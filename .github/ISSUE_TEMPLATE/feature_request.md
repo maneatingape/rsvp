@@ -1,3 +1,8 @@
+---
+name: Feature request
+about: Suggest an idea for this project
+---
+
 ## Feature Request
 
 **Before creating a feature request please check that:**

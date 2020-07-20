@@ -1,3 +1,8 @@
+---
+name: Bug report
+about: Create a report to help us improve
+---
+
 ## Bug Report
 
 **Before creating a bug report please check that:**
