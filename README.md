@@ -11,7 +11,7 @@ This library enables players to make automated low delta-v transfers between two
 
 ## Features
 
-* Integrates with your kOS scripts to assist interplanetary travel.
+* Integrates with your kOS scripts.
 * Creates departure and arrival maneuver nodes.
 * Supports rendezvous between vessels, planets, moons, asteroids and comets.
 
@@ -136,6 +136,18 @@ TODO
 ## Technical Details
 
 The [source code readme](src) contains detailed descriptions of the under-the-hood mechanisms. Each script file is thoroughly commented to describe both what the code is doing, but also more importantly *why*.
+
+## Known Issues
+
+The library endeavours to be as flexible as possible, however there are some situations that it currently can't handle:
+
+* **Transfers *from* moons are not working**
+    Transfers *to* moons work just fine, however transfers that eject from a moon to either another moon or a vessel in orbit of the parent planet are going astray. Smaller moons such as Gilly, Minmus, Bop and Pol seem less affected.  
+    As a workaround, eject from the moon first in approximately the right direction, then plot a follow-up vessel-to-vessel or vessel-to-body transfer.
+* **Polar orbit of Mun from LKO and polar orbit of Ike from LDO produce very high delta transfers**
+    These moons are very close to their parent planet relative to the size of their SOI, so the assumption that the transfer logic makes when calculating orbtial offset is not efficient.
+    As a workaround, specify an elliptical prograde final orbit then change inclination at apoapsis.
+
 
 ## Suggest a feature or report a bug
 
