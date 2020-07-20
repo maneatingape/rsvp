@@ -167,7 +167,7 @@ local function validate_boolean {
             setting(key, value).
         }
         else {
-            problem(code, 401, "Option '" + key + "' is '" + value + "', expected boolean").
+            problem(code, "Option '" + key + "' is '" + value + "', expected boolean").
         }
     }.
 }
