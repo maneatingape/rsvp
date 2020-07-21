@@ -19,8 +19,9 @@ jobs:
         run: |
           mkdir rsvp
           cp -r src/*.ks rsvp
-          echo $RELEASE_VERSION > rsvp/version.txt
-          date -u >> rsvp/version.txt
+          cp LICENSE.txt rsvp
+          echo $RELEASE_VERSION > rsvp/VERSION.txt
+          date -u >> rsvp/VERSION.txt
           zip -r rsvp.zip rsvp
       - name: Create Release
         id: create_release
