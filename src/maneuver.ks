@@ -16,7 +16,8 @@ local function create_maneuver {
         "deltav", node_deltav@:bind(maneuver),
         "delete", node_delete@:bind(maneuver),
         "encounter_details", helper@:bind(maneuver, from_vessel, encounter_details@),
-        "periapsis_time", helper@:bind(maneuver, from_vessel, periapsis_time@)
+        "periapsis_time", helper@:bind(maneuver, from_vessel, periapsis_time@),
+        "validate_patches", validate_patches@:bind(maneuver)
     ).
 }
 
@@ -39,7 +40,7 @@ local function node_delete {
 }
 
 // Finds the first orbital patch that matches destination, then calls the
-// specified implementation function. 
+// specified implementation function.
 local function helper {
     parameter maneuver, from_vessel, implementation, destination.
 
@@ -75,10 +76,9 @@ local function encounter_details {
     }
 
     return lex(
-        "success", true,
         "time", arrival_time,
         "velocity", arrival_velocity,
-        "periapsis", arrival_periapsis                
+        "periapsis", arrival_periapsis
     ).
 }
 
@@ -86,7 +86,7 @@ local function encounter_details {
 // between the ship and destination.
 local function periapsis_time {
     parameter destination, arrival_time, adjustment_needed.
-    
+
     // The "positionat" function behaves differently when predicting the future
     // position of the ship relative to planets and moons.
     function planet_cost {
@@ -103,4 +103,55 @@ local function periapsis_time {
     local result is rsvp:line_search(cost@, arrival_time, 21600, 1).
 
     return result:position:x.
+}
+
+local function validate_patches {
+    parameter maneuver, expected, arrival_time.
+
+    local orbit is maneuver:orbit.
+    local actual is list().
+
+    actual:add(orbit:body).
+
+    until not orbit:hasnextpatch or arrival_time < time():seconds + orbit:nextpatcheta {
+        set orbit to orbit:nextpatch.
+        actual:add(orbit:body).
+    }
+
+    if list_equals(expected, actual) {
+        return lex("success", true).
+    }
+    else {
+        local message is "Unexpected encounter " + to_string(actual) + ", expected " + to_string(expected).
+        return lex("success", false, "problems", lex(401, message)).
+    }
+}
+
+// Compare two lists for equality
+local function list_equals {
+    parameter first, second.
+
+    if first:length <> second:length {
+        return false.
+    }
+
+    for i in range(0, first:length) {
+        if first[i] <> second[i] {
+            return false.
+        }
+    }
+
+    return true.
+}
+
+local function to_string {
+    parameter items.
+
+    local names is list().
+
+    for item in items {
+        names:add(item:name).
+    }
+
+    return "'" + names:join(" => ") + "'".
 }
