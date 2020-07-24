@@ -120,7 +120,7 @@ local function iterated_local_search {
     local result is lex("total_deltav", "max").
     local invocations is 0.
 
-    for x in range(earliest_departure, latest_departure, search_interval) {
+    from { local x is earliest_departure. } until x > latest_departure step { set x to x + search_interval. } do {
         // Restrict x to a limited range of the total search space to save time.
         // If x wanders too far from its original value, then most likely the
         // prevous search has already found that minimum or the next search will
