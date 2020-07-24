@@ -16,6 +16,7 @@ export("ideal_hohmann_transfer_period", ideal_hohmann_transfer_period@).
 export("synodic_period", synodic_period@).
 export("max_period", max_period@).
 export("min_period", min_period@).
+export("time_at_periapsis", time_at_periapsis@).
 
 // Calculates the delta-v needed to transfer between origin and destination
 // planets at the specified times.
@@ -204,22 +205,22 @@ local function vessel_ejection_deltav_from_body {
 // This figure is used to scale a vector offset from the planet's center that
 // will result in an orbit periapsis in the correct location.
 local function impact_parameter {
-    parameter destination, encounter, altitude, orientation.
+    parameter destination, patch_details, altitude, orientation.
 
     local mu is destination:mu.
     local r1 is destination:radius + altitude.
     local r2 is destination:soiradius.
 
-    local v2 is encounter:velocity:mag.
+    local v2 is patch_details:soi_velocity:mag.
 
     local a is 1 / (2 / r2 - v2 ^ 2 / mu).
     local e is 1 - r1 / a.
     // Handle both hyperbolic and elliptical cases
     local b is abs(a) * sqrt(abs(1 - e ^ 2)).
 
-    local osv is orbital_state_vectors(destination, encounter:time).
+    local osv is orbital_state_vectors(destination, patch_details:soi_time).
     local normal is vcrs(osv:velocity, osv:position):normalized.
-    local radial is vcrs(normal, encounter:velocity):normalized.
+    local radial is vcrs(normal, patch_details:soi_velocity):normalized.
 
     local orientation_vectors is lex("prograde", radial, "polar", normal, "retrograde", -radial).
     local offset_vector is orientation_vectors[orientation].
@@ -352,4 +353,22 @@ local function min_period {
     parameter origin, destination.
 
     return min(origin:orbit:period, destination:orbit:period).
+}
+
+// Calculate the time at periapsis from orbital parameters. Hyperbolic intercept
+// orbits will have a negative semi-majoraxis and mean anomaly at epoch.
+local function time_at_periapsis {
+    parameter orbit.
+
+    // Calculate mean motion "n" using absolute value of semi-majoraxis
+    // to handle both elliptical and hyperbolic cases
+    local mu is orbit:body:mu.
+    local a is abs(orbit:semimajoraxis).
+    local n is sqrt(mu / a ^ 3).
+    // Mean anomaly is zero at periapsis allowing us to solve for time.
+    local t0 is orbit:epoch.
+    local m0 is orbit:meananomalyatepoch * constant:degtorad. // Careful with units
+    local periapsis_time is t0 - m0 / n.
+
+    return periapsis_time.
 }

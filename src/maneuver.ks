@@ -15,8 +15,7 @@ local function create_maneuver {
         "time", node_time@:bind(maneuver),
         "deltav", node_deltav@:bind(maneuver),
         "delete", node_delete@:bind(maneuver),
-        "encounter_details", helper@:bind(maneuver, from_vessel, encounter_details@),
-        "periapsis_time", helper@:bind(maneuver, from_vessel, periapsis_time@),
+        "patch_details", patch_details@:bind(maneuver, from_vessel),
         "validate_patches", validate_patches@:bind(maneuver)
     ).
 }
@@ -39,72 +38,46 @@ local function node_delete {
     remove maneuver.
 }
 
-// Finds the first orbital patch that matches destination, then calls the
-// specified implementation function.
-local function helper {
-    parameter maneuver, from_vessel, implementation, destination.
+// Finds the first orbital patch that matches destination body, then returns
+// the predicted time, velocity and periapsis details of the ship at the exact
+// moment when it will enter the destination's SOI.
+local function patch_details {
+    parameter maneuver, from_vessel, destination.
 
     local orbit is maneuver:orbit.
-    local adjustment_needed is from_vessel and destination:hasbody and destination:body:hasbody.
 
     until not orbit:hasnextpatch {
-        local arrival_time is time():seconds + orbit:nextpatcheta.
+        local soi_time is time():seconds + orbit:nextpatcheta.
         set orbit to orbit:nextpatch.
 
         if orbit:body = destination {
-            return implementation(destination, arrival_time, adjustment_needed).
+            local soi_velocity is velocityat(ship, soi_time):orbit.
+            local periapsis_altitude is orbit:periapsis.
+            local periapsis_time is rsvp:time_at_periapsis(orbit).
+
+            // When the destination is a moon (rather than a planet) then
+            // "velocityat" returns value relative to the parent planet *not*
+            // the moon, even though ship is within moon's SOI at "patch_time".
+            if from_vessel and destination:hasbody and destination:body:hasbody {
+                local adjustment is velocityat(destination, soi_time):orbit.
+                set soi_velocity to soi_velocity - adjustment.
+            }
+
+            return lex(
+                "soi_time", soi_time,
+                "soi_velocity", soi_velocity,
+                "periapsis_altitude", periapsis_altitude,
+                "periapsis_time", periapsis_time
+            ).
         }
     }
 
     return "none".
 }
 
-// Returns the predicted time, velocity and periapsis of the ship at the
-// exact moment when it will enter the destination's SOI.
-local function encounter_details {
-    parameter destination, arrival_time, adjustment_needed.
-
-    local arrival_velocity is velocityat(ship, arrival_time):orbit.
-    local arrival_periapsis is orbitat(ship, arrival_time):periapsis.
-
-    // When the destination is a moon (rather than a planet) then
-    // "velocityat" returns value relative to the parent planet *not*
-    // the moon, even though ship is within moon's SOI at "arrival_time".
-    if adjustment_needed {
-        local adjustment is velocityat(destination, arrival_time):orbit.
-        set arrival_velocity to arrival_velocity - adjustment.
-    }
-
-    return lex(
-        "time", arrival_time,
-        "velocity", arrival_velocity,
-        "periapsis", arrival_periapsis
-    ).
-}
-
-// Find the periapsis time by using line search to find the closest point
-// between the ship and destination.
-local function periapsis_time {
-    parameter destination, arrival_time, adjustment_needed.
-
-    // The "positionat" function behaves differently when predicting the future
-    // position of the ship relative to planets and moons.
-    function planet_cost {
-        parameter v.
-        return (positionat(ship, v:x) - destination:position):mag.
-    }
-
-    function moon_cost {
-        parameter v.
-        return (positionat(ship, v:x) - positionat(destination, v:x)):mag.
-    }
-
-    local cost is choose moon_cost@ if adjustment_needed else planet_cost@.
-    local result is rsvp:line_search(cost@, arrival_time, 21600, 1).
-
-    return result:position:x.
-}
-
+// Validate that the actual projected orbit patches match expectation.
+// This checks for any unexpected encounters along the way,
+// for example Kerbin's Mun or Duna's Ike getting in the way.
 local function validate_patches {
     parameter maneuver, expected, arrival_time.
 
