@@ -70,7 +70,7 @@ local function find_launch_window {
         return details:ejection + details:insertion.
     }
 
-    // Find lowest deltav transfer
+    // Find lowest deltav transfer.
     local transfer is iterated_local_search(
         settings:verbose,
         earliest_departure,
@@ -80,7 +80,7 @@ local function find_launch_window {
         search_threshold,
         transfer_cost@).
 
-    // Re-run the Lambert solver to obtain deltav values 
+    // Re-run the Lambert solver to obtain deltav values.
     local details is transfer_details(transfer:flip_direction, transfer:departure_time, transfer:arrival_time).
 
     // Construct nested result structure
