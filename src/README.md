@@ -24,6 +24,7 @@ Collection of functions related to orbital mechanics that:
 * Determine the amount that planets bend hyperbolic trajectories to determine both the correct ejection angle and the [impact parameter](https://en.wikipedia.org/wiki/Hyperbolic_trajectory#Impact_parameter) for insertions.
 * Provide default value for the time of flight based on the [Hohmann transfer](https://en.wikipedia.org/wiki/Hohmann_transfer_orbit) period.
 * Provide default value for search duration based on [Synodic period](https://en.wikipedia.org/wiki/Orbital_period#Synodic_period).
+* Determine the time at periapsis using the Keplerian orbital parameters and the formula for [mean anomaly](https://en.wikipedia.org/wiki/Mean_anomaly).
 
 ## Transfer [(transfer.ks)](transfer.ks)
 

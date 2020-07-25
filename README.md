@@ -58,6 +58,14 @@ Whether or not to create maneuver nodes that will execute the desired journey. T
 |:----|:--------------|:----------------|
 | `create_maneuver_nodes` | None | One of `String` values "none", "first" or "both" |
 
+### Cleanup Maneuver Nodes
+
+If any problems are enountered when creating the transfer then remove and cleanup any maneuver nodes that have been created. Defaults to true but can be disabled for debugging purposes.
+
+| Key | Default value | Accepted values |
+|:----|:--------------|:----------------|
+| `cleanup_maneuver_nodes` | True | `Boolean` |
+
 ### Earliest Departure
 
 When to start searching for transfer windows. Time can be in the vessel's past, present or future. The only restriction is that the time must be greater than the epoch time (Year 1, Day 1, 0:00:00)
@@ -130,7 +138,7 @@ The orbit orientation can be one of three types:
 
 Vessel destinations are treated slightly differently to Celestial body destinations. Setting a vessel as the destination disables the `final_orbit_periapsis`, `final_orbit_type` and `final_orbit_orientation` options.
 
---- 
+---
 
 ## Integrating with your scripts
 
@@ -157,7 +165,7 @@ RSVP is designed with some quality of life features to make it as straightforwar
         ["deltav"] = 1056.03106245216
       ["arrival"] = LEXICON of 2 items:
         ["time"] = 10768356.5846979
-        ["deltav"] = 647.973826829273        
+        ["deltav"] = 647.973826829273
     ```
     An example of a transfer with problems is:
     ```
@@ -177,7 +185,7 @@ The [source code readme](src) contains detailed descriptions of the under-the-ho
 The library endeavours to be as flexible as possible, however there are some situations that it currently can't handle:
 
 * **Transfers *from* moons are not working**
-    Transfers *to* moons work just fine, however transfers that eject from a moon to either another moon or a vessel in orbit of the parent planet are going astray. Smaller moons such as Gilly, Minmus, Bop and Pol seem less affected.  
+    Transfers *to* moons work just fine, however transfers that eject from a moon to either another moon or a vessel in orbit of the parent planet are going astray. Smaller moons such as Gilly, Minmus, Bop and Pol seem less affected.
     As a workaround, eject from the moon first in approximately the right direction, then plot a follow-up vessel-to-vessel or vessel-to-body transfer.
 * **Polar orbit of Mun from LKO and polar orbit of Ike from LDO produce very high delta transfers**
     These moons are very close to their parent planet relative to the size of their SOI, so the assumption that the transfer logic makes when calculating orbital offset is not efficient.

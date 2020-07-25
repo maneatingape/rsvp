@@ -20,14 +20,14 @@ local function vessel_to_vessel {
     local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time).
 
     // 1st node
-    local maneuver is create_vessel_node(departure_time, details:dv1).    
+    local maneuver is create_vessel_node(departure_time, details:dv1).
     local departure is lex("time", departure_time, "deltav", details:dv1:mag).
     result:add("actual", lex("departure", departure)).
 
     // Check for unexpected encounters
     local expected_patches is list(ship:body).
     local validate_patches is maneuver:validate_patches(expected_patches, arrival_time).
-    
+
     if not validate_patches:success {
         return validate_patches.
     }
@@ -60,10 +60,10 @@ local function vessel_to_body {
     // Check for unexpected encounters
     local expected_patches is list(ship:body, destination).
     local validate_patches is maneuver:validate_patches(expected_patches, arrival_time).
-    
+
     if not validate_patches:success {
         return validate_patches.
-    }    
+    }
 
     // Using our arrival velocity at the edge of the destination's SOI, calculate
     // an initial guess for the "impact parameter", that is the distance that
@@ -136,10 +136,10 @@ function body_to_vessel {
     local maneuver is maybe:maneuver.
     local expected_patches is list(ship:body, ship:body:body).
     local validate_patches is maneuver:validate_patches(expected_patches, arrival_time).
-    
+
     if not validate_patches:success {
         return validate_patches.
-    }      
+    }
 
     // Add actual departure deltav to the result. This will differ quite a bit
     // from the predicted value due to the difficulties ejecting from a body
@@ -181,10 +181,10 @@ local function body_to_body {
     local maneuver is maybe:maneuver.
     local expected_patches is list(ship:body, ship:body:body, destination).
     local validate_patches is maneuver:validate_patches(expected_patches, arrival_time).
-    
+
     if not validate_patches:success {
         return validate_patches.
-    }     
+    }
 
     // Using our arrival velocity at the edge of the destination's SOI, calculate
     // an initial guess for the "impact parameter", that is the distance that
@@ -283,10 +283,10 @@ local function create_body_departure_node {
         local patch_details is maneuver:patch_details(grandparent).
         local soi_time is choose "max" if patch_details = "none" else patch_details:soi_time.
         local validate_patches is maneuver:validate_patches(expected_patches, soi_time).
-        
+
         if not validate_patches:success {
             return validate_patches.
-        }          
+        }
 
         // Calculate correction using predicted flight path
         local details is rsvp:transfer_deltav(ship, destination, flip_direction, soi_time, arrival_time, grandparent, offset).
