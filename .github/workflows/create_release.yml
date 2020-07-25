@@ -19,7 +19,7 @@ jobs:
         run: |
           mkdir rsvp
           cp -r src/*.ks rsvp
-          cp LICENSE.txt rsvp
+          cp LICENSE.md rsvp
           echo $RELEASE_VERSION > rsvp/VERSION.txt
           date -u >> rsvp/VERSION.txt
           zip -r rsvp.zip rsvp
