@@ -12,7 +12,7 @@ local function find_launch_window {
 
     // For vessel-to-vessel or vessel-to-body transfers the origin considered
     // for search purposes is the vessel itself, otherwise use the parent body.
-    local origin is choose ship if settings:origin_is_vessel else ship:body.
+    local origin is choose ship if settings:origin_type = "vessel" else ship:body.
 
     // Calculate any default settings values using simple rules-of-thumb.
     local earliest_departure is settings:earliest_departure.
@@ -43,11 +43,11 @@ local function find_launch_window {
     // Compose orbital functions.
     local transfer_deltav is rsvp:transfer_deltav:bind(origin, destination).
 
-    local prefix is choose "vessel" if settings:origin_is_vessel else "equatorial".
+    local prefix is choose "vessel" if settings:origin_type = "vessel" else "equatorial".
     local ejection_deltav is rsvp[prefix + "_ejection_deltav"].
     local initial_orbit_periapsis is max(ship:periapsis, 0).
 
-    set prefix to choose "vessel" if settings:destination_is_vessel else settings:final_orbit_type.
+    set prefix to choose "vessel" if settings:destination_type = "vessel" else settings:final_orbit_type.
     local insertion_deltav is rsvp[prefix + "_insertion_deltav"].
     local final_orbit_periapsis is settings:final_orbit_periapsis.
 

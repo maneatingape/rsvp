@@ -13,7 +13,8 @@ local delegates is lex(
     "max_time_of_flight", list("default", validate_scalar(6)),
     "final_orbit_periapsis", list(100000, validate_scalar(7)),
     "final_orbit_type", list("circular", validate_list(8, list("circular", "elliptical", "none"))),
-    "final_orbit_orientation", list("prograde", validate_list(9, list("prograde", "polar", "retrograde")))
+    "final_orbit_orientation", list("prograde", validate_list(9, list("prograde", "polar", "retrograde"))),
+    "cleanup_maneuver_nodes", list(true, validate_boolean(10))
 ).
 
 // Collect valid options into "settings" and error messages into "problems".
@@ -72,10 +73,10 @@ local function validate_orbital_constraints {
     parameter destination, setting, problem.
 
     if destination:istype("vessel") {
-        setting("destination_is_vessel", true).
+        setting("destination_type", "vessel").
     }
     else if destination:istype("body") {
-        setting("destination_is_vessel", false).
+        setting("destination_type", "body").
     }
     else {
         problem(201, "Parameter 'destination' is not expected type Orbitable (Vessels and Bodies)").
@@ -95,10 +96,10 @@ local function validate_orbital_constraints {
     }
 
     if ship:body = destination:body {
-        setting("origin_is_vessel", true).
+        setting("origin_type", "vessel").
     }
     else if ship:body:hasbody and ship:body:body = destination:body {
-        setting("origin_is_vessel", false).
+        setting("origin_type", "body").
     }
     else {
         problem(205, "Destination '" + destination:name + "' is not orbiting a direct common parent or grandparent of ship '" + ship:name + "'").

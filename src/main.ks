@@ -17,8 +17,9 @@ import("validate.ks").
 local function goto {
     parameter destination, options is lex().
 
-    // Thoroughly check supplied parameters, options and game state for correctness.
-    // Prints any validation problems found to the console then exits early.
+    // Thoroughly check supplied parameters, options and game state for
+    // correctness. If any problems are found, print validation details
+    // to the console then exit early.
     local maybe is rsvp:validate_parameters(destination, options).
 
     if not maybe:success {
@@ -26,7 +27,7 @@ local function goto {
         return maybe.
     }
 
-    // Find the lowest deltav cost transfer with the given settings.
+    // Find the lowest deltav cost transfer using the specified settings.
     local settings is maybe:settings.
     local tuple is rsvp:find_launch_window(destination, settings).
     local transfer is tuple:transfer.
@@ -34,25 +35,22 @@ local function goto {
 
     // If no node creation has been requested return predicted transfer details,
     // otherwise choose betwen the 4 combinations of possible transfer types.
-    if settings:create_maneuver_nodes = "none" {
-        return result.
-    }
-    else if settings:origin_is_vessel {
-        if settings:destination_is_vessel {
-            return rsvp:vessel_to_vessel(destination, settings, transfer, result).
-        }
-        else {
-            return rsvp:vessel_to_body(destination, settings, transfer, result).
-        }
-    }
-    else {
-        if settings:destination_is_vessel {
-            return rsvp:body_to_vessel(destination, settings, transfer, result).
-        }
-        else {
-            return rsvp:body_to_body(destination, settings, transfer, result).
+    if settings:create_maneuver_nodes <> "none" {
+        // Both "origin_type" and "destination_type" are either the string
+        // "vessel" or "body", so can be used to construct the function
+        // names for transfer, for example "vessel_to_vessel" or "body_to_body".
+        local key is settings:origin_type + "_to_" + settings:destination_type.
+        set result to rsvp[key](destination, settings, transfer, result).
+
+        // In the case of failure delete any manuever nodes created.
+        if not result:success and settings:cleanup_maneuver_nodes {
+            for maneuver in allnodes {
+                remove maneuver.
+            }
         }
     }
+
+    return result.
 }
 
 local function export {
