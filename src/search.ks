@@ -14,28 +14,54 @@ local function find_launch_window {
     // for search purposes is the vessel itself, otherwise use the parent body.
     local origin is choose ship if settings:origin_type = "vessel" else ship:body.
 
+    // Use different defaults for asteroids and comets.
+    local hyperbolic is destination:orbit:eccentricity >= 1.
+    local extrasolar is hyperbolic and not destination:body:hasbody.
+
     // Calculate any default settings values using simple rules-of-thumb.
+    local now is time():seconds.
+
     local earliest_departure is settings:earliest_departure.
     if earliest_departure = "default" {
-        set earliest_departure to time():seconds + 120.
+        set earliest_departure to now + 120.
     }
 
     local search_duration is settings:search_duration.
     if search_duration = "default" {
-        local max_period is rsvp:max_period(origin, destination).
-        local synodic_period is rsvp:synodic_period(origin, destination).
-        set search_duration to max(max_period, synodic_period).
+        if extrasolar {
+            set search_duration to origin:orbit:period.
+        }
+        else if hyperbolic {
+            set search_duration to 0.5 * (rsvp:time_at_soi_edge(destination) - now).
+        }
+        else {
+            local max_period is rsvp:max_period(origin, destination).
+            local synodic_period is rsvp:synodic_period(origin, destination).
+            set search_duration to max(max_period, synodic_period).
+        }
     }
 
     local max_time_of_flight is settings:max_time_of_flight.
     if max_time_of_flight = "default" {
-        local hohmann_period is rsvp:ideal_hohmann_transfer_period(origin, destination).
-        set max_time_of_flight to hohmann_period.
+        if extrasolar {
+            set max_time_of_flight to origin:orbit:period.
+        }
+        else if hyperbolic {
+            set max_time_of_flight to 0.5 * (rsvp:time_at_soi_edge(destination) - now).
+        }
+        else {
+            set max_time_of_flight to rsvp:ideal_hohmann_transfer_period(origin, destination).
+        }
     }
 
     local search_interval is settings:search_interval.
     if search_interval = "default" {
-        set search_interval to 0.5 * rsvp:min_period(origin, destination).
+        if extrasolar or hyperbolic {
+            set search_interval to 0.5 * origin:orbit:period.
+        }
+        else {
+            set search_interval to 0.5 * rsvp:min_period(origin, destination).
+        }
     }
 
     local search_threshold is max(120, min(0.002 * search_interval, 3600)).

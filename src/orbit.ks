@@ -17,6 +17,7 @@ export("synodic_period", synodic_period@).
 export("max_period", max_period@).
 export("min_period", min_period@).
 export("time_at_periapsis", time_at_periapsis@).
+export("time_at_soi_edge", time_at_soi_edge@).
 
 // Calculates the delta-v needed to transfer between origin and destination
 // planets at the specified times.
@@ -161,15 +162,15 @@ local function vessel_ejection_deltav_from_body {
     // SOI, so you can escape even if mathematically the orbit is not a hyperbola).
     local e is ve ^ 2 * r1 / mu - 1.
     local a is r1 / (1 - e).
-    // Cosine of the eccentric anomaly at a distance r2 from the focus:
-    local cos_E is (a - r2) / (a * e).
-    // Negative slope of the velocity at a distance r2 from the focus:
-    // -dy = b * -cos(E)
-    //  dx = a * -sin(E)
-    // -dy / dx = (b / a) * cos(E) / sin (E)
-    // Replace (b / a) with sqrt(1 - e ^ 2)
-    // Replace sin(E) with sqrt(1 - cos(E)^2)
-    local m is cos_E * sqrt((1 - e ^ 2) / (1 - cos_E ^ 2)).
+    // Calculate hyperbolic eccentric anomaly at a distance r2 from the focus.
+    local cosh_E is (a - r2) / (a * e).
+    // Slope of the velocity at a distance r2 from the focus:
+    // dy =  b * cosh(E)
+    // dx = -a * sinh(E)
+    // dy / dx = (b / -a) * cosh(E) / sinh(E)
+    // Replace (b / -a) with sqrt(e ^ 2 - 1)
+    // Replace sinh(E) with sqrt(cosh(E) ^ 2 - 1)
+    local m is cosh_E * sqrt((e ^ 2 - 1) / (cosh_E ^ 2 - 1)).
 
     // Now that we know the angle that the origin bends our escape trajectory,
     // we work backwards to determine the initial escape velocity vector.
@@ -356,19 +357,52 @@ local function min_period {
 }
 
 // Calculate the time at periapsis from orbital parameters. Hyperbolic intercept
-// orbits will have a negative semi-majoraxis and mean anomaly at epoch.
+// orbits will have a negative semi-majoraxis and negative mean anomaly at epoch.
+// The mean anomaly increases to zero as the object approaches periapsis, then
+// becomes positive and continously increasing until the object leaves the SOI.
 local function time_at_periapsis {
     parameter orbit.
+
+    // By definition, mean anomaly is zero at periapsis.
+    return time_at_mean_anomaly(orbit, 0).
+}
+
+// Calculate the time at which an object on a hyperbolic orbit will leave its
+// current SOI.
+local function time_at_soi_edge {
+    parameter destination.
+
+    local r2 is destination:body:soiradius.
+    local orbit is destination:orbit.
+    local a is orbit:semimajoraxis.
+    local e is orbit:eccentricity.
+
+    // Calculate hyperbolic eccentric anomaly at a distance r2 from the focus.
+    local cosh_H is (a - r2) / (a * e).
+    local sinh_H is sqrt(cosh_H ^ 2 - 1).
+    local H is ln(cosh_H + sinh_H).
+
+    // Calculate mean anomaly from eccentric anomaly using hyperbolic variant
+    // of Keplers' equation.
+    local M is e * sinh_H - H.
+
+    return time_at_mean_anomaly(orbit, M).
+}
+
+// Calculate the universal time for an object at a certain point in an orbit
+// given the mean anomaly at that point.
+local function time_at_mean_anomaly {
+    parameter orbit, M.
 
     // Calculate mean motion "n" using absolute value of semi-majoraxis
     // to handle both elliptical and hyperbolic cases
     local mu is orbit:body:mu.
-    local a is abs(orbit:semimajoraxis).
-    local n is sqrt(mu / a ^ 3).
-    // Mean anomaly is zero at periapsis allowing us to solve for time.
-    local t0 is orbit:epoch.
-    local m0 is orbit:meananomalyatepoch * constant:degtorad. // Careful with units
-    local periapsis_time is t0 - m0 / n.
+    local a is orbit:semimajoraxis.
+    local n is sqrt(mu / abs(a ^ 3)).
 
-    return periapsis_time.
+    // Get reference mean anomaly and epoch time.
+    local t0 is orbit:epoch.
+    local M0 is orbit:meananomalyatepoch * constant:degtorad. // Careful with units
+
+    return t0 + (M - M0) / n.
 }
