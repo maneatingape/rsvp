@@ -7,6 +7,7 @@ global rsvp is lex().
 export("goto", goto@).
 
 // Add functions from all other scripts into lexicon.
+import("hill_climb.ks").
 import("lambert.ks").
 import("maneuver.ks").
 import("orbit.ks").
