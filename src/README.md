@@ -8,17 +8,21 @@ The Lambert solver code is a kOS port of the [PyKep project](https://github.com/
 
 The original code is very robust and flexible. For the KSP universe some simplifications have been made, in particular multi-revolution transfer orbits are not considered. Interestingly, the Kerboscript code is more concise than the C++ original, thanks to first class support for vector math and the exponent operator, coming in at around 100 lines not including comments.
 
-## Coordinate Descent [(search.ks)](search.ks)
+## Porkchop Plot Search [(search.ks)](search.ks)
 
 Graphing the delta-v values returned by the Lambert solver, with departure time along the x-axis and arrival time (or time of flight) along the y-axis, yields the famous [porkchop plot.](https://en.wikipedia.org/wiki/Porkchop_plot) This shows the lowest delta-v transfer times between two planets.
 
 However the brute force approach of generating every point of this graph would take far too long on kOS. Instead an [iterated local search](https://en.wikipedia.org/wiki/Iterated_local_search) gives a decent probability of finding the global minimum in a shorter time.
 
-The [coordinate descent](https://en.wikipedia.org/wiki/Coordinate_descent) implementation used is a variant of the classic [hill climbing](https://en.wikipedia.org/wiki/Hill_climbing) algorithm. Given a starting point, it always attempts to go "downhill" to a region of lower delta-v, stopping once it cannot go any further.
+Simple heuristics based on the origin and destination orbits provide sensible defaults for the search parameters. These parameters can be overriden by the user for fine-grained control.
+
+## Coordinate Descent [(hill_climb.ks)](hill_climb.ks)
+
+The [coordinate descent](https://en.wikipedia.org/wiki/Coordinate_descent) implementation used by RSVP is a variant of the classic [hill climbing](https://en.wikipedia.org/wiki/Hill_climbing) algorithm. Given a starting point, it always attempts to go "downhill" to a region of lower value, stopping once it cannot go any further. The algorithm is completely general purpose and flexible, taking an arbitrary "cost" function, for example delta-v magnitude or distance to periapsis. The implementation can search up to three dimensions, however currently only the one and two dimensional variants are used.
 
 ## Orbital Utilities [(orbit.ks)](orbit.ks)
 
-Collection of functions related to orbital mechanics that:
+Toolkit of functions related to orbital mechanics that:
 * Use the [vis-viva equation](https://en.wikipedia.org/wiki/Vis-viva_equation) to calculate the delta-v between elliptical orbits and hyperbolic transfers, in order to determine the ejection and insertion delta-v values.
 * Calculate projected [orbital state vectors](https://en.wikipedia.org/wiki/Orbital_state_vectors) for planets and vessels at any time.
 * Determine the amount that planets bend hyperbolic trajectories to determine both the correct ejection angle and the [impact parameter](https://en.wikipedia.org/wiki/Hyperbolic_trajectory#Impact_parameter) for insertions.
