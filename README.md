@@ -16,7 +16,7 @@ This library enables players to make automated low delta-v transfers between two
 * Supports rendezvous between vessels, planets, moons, asteroids and comets.
 
 This short video shows these features in action:
-[![Demo Video](resources/demo_preview.png)](https://vimeo.com/439419374)
+[![Demo Video](resources/demo_preview.png)](https://vimeo.com/442344803)
 
 ## Quickstart
 
