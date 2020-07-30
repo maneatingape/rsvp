@@ -7,7 +7,6 @@ about: Create a report to help us improve
 
 **Before creating a bug report please check that:**
 
-- [ ] [Project board](https://github.com/maneatingape/rsvp/projects/1) does not already contain this bug report.
 - [ ] [Issues list](https://github.com/maneatingape/rsvp/issues) does not already contain this bug report.
 
 **Describe the bug**

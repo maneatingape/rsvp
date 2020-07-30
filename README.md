@@ -194,4 +194,4 @@ The library endeavours to be as flexible as possible, however there are some sit
 
 ## Suggest a feature or report a bug
 
-If you have an idea for a feature or have found a bug then you can [create an issue here](https://github.com/maneatingape/rsvp/issues/new/choose). Before you do so, please check that the issue doesn't already exist, either in the isses list or the [Project Board](https://github.com/maneatingape/rsvp/projects/1).
+If you have an idea for a feature or have found a bug then you can [create an issue here](https://github.com/maneatingape/rsvp/issues/new/choose). Before you do so, please check that the issue doesn't already exist in the [isses list](https://github.com/maneatingape/rsvp/issues).

@@ -7,7 +7,6 @@ about: Suggest an idea for this project
 
 **Before creating a feature request please check that:**
 
-- [ ] [Project board](https://github.com/maneatingape/rsvp/projects/1) does not already contain this feature.
 - [ ] [Issues list](https://github.com/maneatingape/rsvp/issues) does not already contain this feature.
 
 **Is your feature request related to a problem? Please describe.**
