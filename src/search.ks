@@ -128,11 +128,13 @@ local function find_launch_window {
 local function iterated_local_search {
     parameter verbose, earliest_departure, search_duration, max_time_of_flight, search_interval, step_threshold, total_deltav.
 
+    local x is earliest_departure.
+    local latest_departure is earliest_departure + search_duration.
+
     // The default max_time_of_flight is twice the ideal Hohmann transfer time,
     // so setting the intial guess to half of that will be reasonably close to
     // the final value in most cases.
     local y is max_time_of_flight * 0.5.
-    local latest_departure is earliest_departure + search_duration.
     local step_size is search_interval * 0.1.
 
     // Sneaky trick here. When comparing a scalar and a string, kOS converts the
@@ -142,10 +144,10 @@ local function iterated_local_search {
     local result is lex("total_deltav", "max").
     local invocations is 0.
 
-    from { local x is earliest_departure. } until x > latest_departure step { set x to x + search_interval. } do {
+    until x > latest_departure {
         // Restrict x to a limited range of the total search space to save time.
         // If x wanders too far from its original value, then most likely the
-        // prevous search has already found that minimum or the next search will
+        // previous search has already found that minimum or the next search will
         // find it.
         local min_x is max(earliest_departure, x - search_interval).
         local max_x is min(latest_departure, x + 2 * search_interval).
@@ -157,7 +159,6 @@ local function iterated_local_search {
         local flip_direction is retrograde_deltav < prograde_deltav.
         local initial_deltav is choose retrograde_deltav if flip_direction else prograde_deltav.
 
-        set invocations to invocations + 2.
         function cost {
             parameter v.
 
@@ -192,6 +193,9 @@ local function iterated_local_search {
                 "flip_direction", flip_direction
             ).
         }
+
+        set invocations to invocations + 2.
+        set x to x + search_interval.
     }
 
     if verbose {

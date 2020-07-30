@@ -8,7 +8,7 @@ export("grid_search", grid_search@).
 local function line_search {
     parameter cost, x, step_size, step_threshold.
 
-    local dimensions is list(v(1, 0, 0), v(-1, 0, 0)). 
+    local dimensions is list(v(1, 0, 0), v(-1, 0, 0)).
     local position is v(x, 0, 0).
     local minimum is cost(position).
 

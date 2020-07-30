@@ -84,7 +84,7 @@ local function validate_orbital_constraints {
     }
 
     if not destination:hasbody {
-        problem(202, "Destination '" + destination:name + "' is not orbiting a parent body.").
+        problem(202, "Destination '" + destination:name + "' is not orbiting a parent body").
         return.
     }
 

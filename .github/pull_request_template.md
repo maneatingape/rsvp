@@ -1,8 +1,8 @@
 **Please check the PR fulfills these basic requirements**
 
-- [ ] PR has merged or rebased most recent commits from upstream repo .
-- [ ] The commit messages are descriptive, helpful and informative.
-- [ ] The code follows the code style of this project.
+- [ ] PR has merged or rebased most recent commits from upstream repo
+- [ ] The commit messages are descriptive, helpful and informative
+- [ ] The code follows the code style of this project
 - [ ] README has been updated (for features)
 
 **What kind of change does this PR introduce?**
