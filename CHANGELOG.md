@@ -1,6 +1,16 @@
 # Changelog
 
+### v4
+
+Support `.ksm` compiled files.
+
+### New Features
+* Add ability to use more compact compiled version of the source on craft that have limited volume space. Compiled files take about 20% of the space of the raw source, resulting in a significant space savings.
+* Add `compile_to` convenience function that compiles the source to a user-specified destination, for example a kOS processor hard drive.
+
 ## v3
+
+Improve handling of objects on hyperbolic orbits.
 
 ### Technical Improvements
 * Use different strategy when calculating default `search_duration`, `max_time_of_flight` and `search_interval` values for a destination with a hyperbolic orbit, for example an asteroid or comet. This change prevents a `Tried to push Infinity onto the stack` error that occurred because the approach used for planets assumes an elliptical orbit with a finite orbital period.

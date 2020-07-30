@@ -4,16 +4,23 @@
 // in order to make them available to other scripts while preventing pollution
 // of the global namespace.
 global rsvp is lex().
-export("goto", goto@).
 
-// Add functions from all other scripts into lexicon.
-import("hill_climb.ks").
-import("lambert.ks").
-import("maneuver.ks").
-import("orbit.ks").
-import("search.ks").
-import("transfer.ks").
-import("validate.ks").
+// List of all source files. Omit extenstion so that users can use
+// compiled version if desired.
+local source_files is list(
+    "hill_climb",
+    "lambert",
+    "main",
+    "maneuver",
+    "orbit",
+    "search",
+    "transfer",
+    "validate"
+).
+
+export("goto", goto@).
+export("compile_to", compile_to@).
+import().
 
 local function goto {
     parameter destination, options is lex().
@@ -54,15 +61,52 @@ local function goto {
     return result.
 }
 
+// Add delegate to the global "rsvp" lexicon.
 local function export {
     parameter key, value.
 
     rsvp:add(key, value).
 }
 
+// Add functions from all other scripts into lexicon. User can use compiled
+// versions of the source, trading off less storage space vs harder to debug
+// error messages.
 local function import {
-    parameter filename.
+    local source_root is scriptpath():parent.
 
-    local full_path is scriptpath():parent:combine(filename).
-    runoncepath(full_path, export@).
+    for filename in source_files {
+        local source_path is source_root:combine(filename).
+
+        runoncepath(source_path, export@).
+    }
+}
+
+// Compiles source files and copies them to a new location. This is useful to
+// save space on processor hard disks that have limited capacity.
+// The trade-off is that error messages are less descriptive.
+local function compile_to {
+    parameter destination.
+
+    local source_root is scriptpath():parent.
+    local destination_root is path(destination).
+
+    // Check that path exists and is a directory.
+    if not exists(destination_root) {
+        print destination_root + " does not exist".
+        return.
+    }
+    if open(destination_root):isfile {
+        print destination_root + " is a file. Should be a directory".
+        return.
+    }
+
+    for filename in source_files {
+        local source_path is source_root:combine(filename + ".ks").
+        local destination_path is destination_root:combine(filename + ".ksm").
+
+        print "Compiling " + source_path.
+        compile source_path to destination_path.
+    }
+
+    print "Succesfully compiled " + source_files:length + " files to " + destination_root.
 }

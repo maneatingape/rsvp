@@ -25,7 +25,7 @@ This short video shows these features in action:
 3. Launch a craft into a stable orbit of Kerbin.
 3. Run this script from the craft:
     ```
-    runoncepath("0:/rsvp/main.ks").
+    runoncepath("0:/rsvp/main").
 
     // Default value is 250. Overclocking CPU speed to maximum is recommended
     // as finding transfers is computationally intensive.
@@ -174,6 +174,12 @@ RSVP is designed with some quality of life features to make it as straightforwar
     ["problems"] = LEXICON of 2 items:
       [1] = "Option 'verbose' is 'qux', expected boolean"
       [303] = "Option 'foo_bar' not recognised"
+    ```
+* To save space on the limited hard disks of kOS processors you can compile the source to `.ksm` files that are about 20% of the size of the raw source. A convenience `rsvp:compile_to` function exists for this purpose. For example, the following code will compile the source from the archive then copy the compiled files to the hard disk of the current processor.
+    ```
+    runoncepath("0:/rsvp/main").
+    createdir("1:/rsvp").
+    rsvp:compile_to("1:/rsvp").
     ```
 
 ## Technical Details
