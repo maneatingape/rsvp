@@ -5,7 +5,7 @@
 Support `.ksm` compiled files.
 
 ### New Features
-* Add ability to use more compact compiled version of the source on craft that have limited volume space. Compiled files take about 20% of the space of the raw source, resulting in a significant space savings.
+* Implement issue [`Running other files should not include extension`](https://github.com/maneatingape/rsvp/issues/5). Add ability to use more compact compiled version of the source on craft that have limited volume space. Compiled files take about 20% of the space of the raw source, resulting in a significant space savings.
 * Add `compile_to` convenience function that compiles the source to a user-specified destination, for example a kOS processor hard drive.
 
 ## v3
