@@ -1,0 +1,40 @@
+# Trigger on any update to documentation source folder
+on:
+  push:
+    branches:
+    - master
+    paths:
+    - 'documentation/**'
+
+name: Build Documentation
+
+jobs:
+  build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Generate HTML
+        uses: ammaraskar/sphinx-action@master
+        with:
+          docs-folder: "documentation"
+          pre-build-command: "pip install sphinx-rtd-theme"
+          build-command: "sphinx-build -d cache . output"
+
+      - name: Commit Changes
+        run: |
+          git fetch
+          git checkout gh-pages
+
+          mkdir -p docs
+          touch docs/.nojekyll
+          cp -r documentation/output/* docs
+
+          git config --local user.name "GitHub Actions"
+          git config --local user.email "actions@github.com"
+
+          git add docs
+          git commit -m "Build Documentation" || true
+          git push
