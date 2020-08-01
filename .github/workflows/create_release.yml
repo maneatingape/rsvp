@@ -13,6 +13,7 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v2
+
       - name: Create Asset
         env:
           RELEASE_VERSION: ${{ github.ref }}
@@ -23,6 +24,7 @@ jobs:
           echo $RELEASE_VERSION > rsvp/VERSION.txt
           date -u >> rsvp/VERSION.txt
           zip -r rsvp.zip rsvp
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -33,6 +35,7 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: true
           prerelease: false
+
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
         env:
