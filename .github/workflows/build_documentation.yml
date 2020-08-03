@@ -4,7 +4,7 @@ on:
     branches:
     - master
     paths:
-    - 'documentation/**'
+    - 'doc/**'
 
 name: Build Documentation
 
@@ -19,7 +19,7 @@ jobs:
       - name: Generate HTML
         uses: ammaraskar/sphinx-action@master
         with:
-          docs-folder: "documentation"
+          docs-folder: "doc"
           pre-build-command: "pip install sphinx-rtd-theme"
           build-command: "sphinx-build -d cache . output"
 
@@ -28,9 +28,9 @@ jobs:
           git fetch
           git checkout gh-pages
 
+          touch .nojekyll
           mkdir -p docs
-          touch docs/.nojekyll
-          cp -r documentation/output/* docs
+          cp -r doc/output/* docs
 
           git config --local user.name "GitHub Actions"
           git config --local user.email "actions@github.com"
