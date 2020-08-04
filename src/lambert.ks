@@ -150,8 +150,14 @@ local function time_of_flight {
     parameter lambda, a, x, y.
 
     local b is sqrt(abs(a)).
-    local c is lambda * a + x * y.
-    local psi is choose constant:degtorad * arccos(c) if a > 0 else ln(c + b * (y - lambda * x)).
+    local f is b * (y - lambda * x).
+    local g is lambda * a + x * y.
+
+    // For the hyperbolic case when "a" is less than zero, large values of "x"
+    // can cause slight numeric inaccuracies in the values of "f" and "g" to
+    // accumulate and result in a negative sum. The "min" function acts as a
+    // guard in this case to prevent errors when taking the log of this value.
+    local psi is choose constant:degtorad * arccos(g) if a > 0 else ln(min(1e-300, f + g)).
 
     return (psi / b - x + lambda * y) / a.
 }
