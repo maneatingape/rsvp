@@ -14,6 +14,7 @@ This library enables players to make automated low delta-v transfers between two
 * Integrates with your kOS scripts.
 * Creates departure and arrival maneuver nodes.
 * Supports rendezvous between vessels, planets, moons, asteroids and comets.
+* Adapts to planetary packs such as [Galileo's Planet Pack](https://forum.kerbalspaceprogram.com/index.php?/topic/152136-ksp-181-galileos-planet-pack-v164-01-july-2020/), [Outer Planets Mods](https://forum.kerbalspaceprogram.com/index.php?/topic/184789-131-18x-outer-planets-mod-v226-4th-feb-2020/) and [JNSQ](https://forum.kerbalspaceprogram.com/index.php?/topic/184880-181-jnsq-090-03-feb-2020/).
 
 This short video shows these features in action:
 [![Demo Video](doc/images/demo_preview.png)](https://vimeo.com/442344803)
@@ -26,11 +27,6 @@ This short video shows these features in action:
 3. Run this script from the craft:
     ```
     runoncepath("0:/rsvp/main").
-
-    // Default value is 250. Overclocking CPU speed to maximum is recommended
-    // as finding transfers is computationally intensive.
-    set config:ipu to 2000.
-
     local options is lexicon("create_maneuver_nodes", "both", "verbose", true).
     rsvp:goto(duna, options).
     ```

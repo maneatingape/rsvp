@@ -1,6 +1,14 @@
 # Changelog
 
-### v4
+## v5
+
+### Bug Fixes
+* Fix issue [`Tried to push NAN into the stack when attempting an intercept from a nearly-approaching orbit`](https://github.com/maneatingape/rsvp/issues/6). This was preventing a craft that had just missed an intercept from correcting its orbit. The root cause was slight numeric inaccuracies in the Lambert solver for certain time of flight calculations resulting in an attempt to take the log of a negative number. Added a guard to protect against this edge case.
+
+### Technical Improvements
+* Add `build_documentation` [Github Action](https://github.com/features/actions) that creates documentation in the same format as kOS. On any change to the `doc` folder, this action will automatically run the [Sphinx generator](https://www.sphinx-doc.org/en/master/) to convert raw `.rst` text files to HTML, then publish the changes to Github Pages. This keeps a clean separation in the repository between the raw source files and the generated output.
+
+## v4
 
 Support `.ksm` compiled files.
 
