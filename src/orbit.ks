@@ -7,7 +7,6 @@ export("maneuver_node_vector_projection", maneuver_node_vector_projection@).
 export("equatorial_ejection_deltav", equatorial_ejection_deltav@).
 export("vessel_ejection_deltav", vessel_ejection_deltav@).
 export("vessel_ejection_deltav_from_body", vessel_ejection_deltav_from_body@).
-export("impact_parameter", impact_parameter@).
 export("circular_insertion_deltav", orbit_insertion_deltav@:bind(true)).
 export("elliptical_insertion_deltav", orbit_insertion_deltav@:bind(false)).
 export("vessel_insertion_deltav", vessel_insertion_deltav@).
@@ -18,6 +17,8 @@ export("max_period", max_period@).
 export("min_period", min_period@).
 export("time_at_periapsis", time_at_periapsis@).
 export("time_at_soi_edge", time_at_soi_edge@).
+export("duration_from_soi_edge", duration_from_soi_edge@).
+export("offset_from_soi_edge", offset_from_soi_edge@).
 
 // Calculates the delta-v needed to transfer between origin and destination
 // planets at the specified times.
@@ -153,7 +154,6 @@ local function vessel_ejection_deltav_from_body {
     local r1 is osv:position:mag.
     local r2 is origin:soiradius.
 
-    local v1 is osv:velocity:mag.
     local v2 is departure_deltav:mag.
     local ve is sqrt(v2 ^ 2 + mu * (2 / r1 - 2 / r2)).
 
@@ -174,7 +174,7 @@ local function vessel_ejection_deltav_from_body {
 
     // Now that we know the angle that the origin bends our escape trajectory,
     // we work backwards to determine the initial escape velocity vector.
-    // Starting with the desired transfer vecocity at SOI edge given by
+    // Starting with the desired transfer velocity at SOI edge given by
     // "departure_deltav", we first invert the rotation acquired during escape,
     // then scale by the appropriate factor and finally subtract the vessel's
     // current velocity to give the delta-v required.
@@ -194,39 +194,6 @@ local function vessel_ejection_deltav_from_body {
     local ejection_velocity is (ve / v2) * departure_deltav * inverse_rotation.
 
     return ejection_velocity - osv:velocity.
-}
-
-// Calculates the impact parameter offset. The impact parameter is the distance
-// that the vessel would miss the destination if there was no gravity in its SOI.
-// Approaching on a hyperbolic trajectory from infinity this is simply "b"
-// the semi-minor axis.
-//
-// This is slightly incorrect for KSP's finite SOIs, but is close enough to make
-// a good initial guess when tweaking the intercept for a desired periapsis.
-// This figure is used to scale a vector offset from the planet's center that
-// will result in an orbit periapsis in the correct location.
-local function impact_parameter {
-    parameter destination, patch_details, altitude, orientation.
-
-    local mu is destination:mu.
-    local r1 is destination:radius + altitude.
-    local r2 is destination:soiradius.
-
-    local v2 is patch_details:soi_velocity:mag.
-
-    local a is 1 / (2 / r2 - v2 ^ 2 / mu).
-    local e is 1 - r1 / a.
-    // Handle both hyperbolic and elliptical cases
-    local b is abs(a) * sqrt(abs(1 - e ^ 2)).
-
-    local osv is orbital_state_vectors(destination, patch_details:soi_time).
-    local normal is vcrs(osv:velocity, osv:position):normalized.
-    local radial is vcrs(normal, patch_details:soi_velocity):normalized.
-
-    local orientation_vectors is lex("prograde", radial, "polar", normal, "retrograde", -radial).
-    local offset_vector is orientation_vectors[orientation].
-
-    return lex("factor", b, "vector", offset_vector).
 }
 
 // Calculate the delta-v required to convert a hyperbolic intercept orbit
@@ -368,7 +335,8 @@ local function time_at_periapsis {
 }
 
 // Calculate the time at which an object on a hyperbolic orbit will leave its
-// current SOI.
+// current SOI. Positive mean anomaly is when the object is past periapsis and
+// heading towards the edge of the SOI.
 local function time_at_soi_edge {
     parameter destination.
 
@@ -377,13 +345,11 @@ local function time_at_soi_edge {
     local a is orbit:semimajoraxis.
     local e is orbit:eccentricity.
 
-    // Calculate hyperbolic eccentric anomaly at a distance r2 from the focus.
+    // Calculate mean anomaly from eccentric anomaly using hyperbolic variant
+    // of Keplers' equation.
     local cosh_H is (a - r2) / (a * e).
     local sinh_H is sqrt(cosh_H ^ 2 - 1).
     local H is ln(cosh_H + sinh_H).
-
-    // Calculate mean anomaly from eccentric anomaly using hyperbolic variant
-    // of Keplers' equation.
     local M is e * sinh_H - H.
 
     return time_at_mean_anomaly(orbit, M).
@@ -412,4 +378,85 @@ local function time_at_mean_anomaly {
     }
     
     return t0 + delta_M / n.
+}
+
+// Calculate the time duration that a vessel will take from the edge of
+// destination SOI to periapsis. This function is similar to the
+// "time_at_soi_edge" function, the keys differences are:
+// * Returns relative duration instead of an absolute time.
+// * Derives the orbital parameters from arrival velocity and desired periapsis.
+// * Handles both hyperbolic and elliptical injection orbits.
+local function duration_from_soi_edge {
+    parameter destination, altitude, arrival_deltav.
+
+    local mu is destination:mu.
+    local r1 is destination:radius + altitude.
+    local r2 is destination:soiradius.
+
+    local v2 is arrival_deltav:sqrmagnitude.
+    local ve is v2 + mu * (2 / r1 - 2 / r2).
+
+    local e is ve * r1 / mu - 1.
+    local a is r1 / (1 - e).
+    local n is sqrt(mu / abs(a ^ 3)).
+    local M is "none".
+
+    if e < 1 {
+        local cos_E is (a - r2) / (a * e).
+        local sin_E is sqrt(1 - cos_E ^ 2).
+        local EA is arccos(cos_E) * constant:degtorad.
+        set M to EA - e * sin_E.
+    }
+    else {
+        local cosh_H is (a - r2) / (a * e).
+        local sinh_H is sqrt(cosh_H ^ 2 - 1).
+        local H is ln(cosh_H + sinh_H).
+        set M to e * sinh_H - H.
+    }
+
+    return M / n.
+}
+
+// This function is based the equations from the paper:
+// "A new method of patched-conic for interplanetary orbit"
+// by Jin Li, Jianhui Zhao and Fan Li
+// https://doi.org/10.1016/j.ijleo.2017.10.153
+//
+// Given a velocity vector at SOI boundary, periapsis altitude and inclination,
+// it derives the position vector "r" that satisifies the contraints.
+// This position vector is combined in a feedback loop with the Lambert solver
+// to refine the initial estimate from one that only considers planets as points
+// to one that takes the SOI spheres into account.
+//
+// A key insight not in the original paper is that the minimum value of inclination
+// can be derived from the equations for "h" and that using this value simplifies
+// the equations considerably. As these equations use KSP's coordinate system,
+// the x-z plane is the ecliptic and the y-axis is the north pole of the sun.
+local function offset_from_soi_edge {
+    parameter destination, altitude, orientation, arrival_deltav.
+
+    local mu is destination:mu.
+    local r1 is destination:radius + altitude.
+    local r2 is destination:soiradius.
+
+    local v is arrival_deltav.
+    local v2 is v:sqrmagnitude.
+    local ve is sqrt(v2 + mu * (2 / r1 - 2 / r2)).
+
+    // Specific angular momentum vector, chosen to minimize inclination.
+    local h_mag is ve * r1.
+    local n_mag is v:x ^ 2 + v:z ^ 2.
+    local sign is choose 1 if orientation = "prograde" else -1.
+    local cos_i is sign * sqrt(n_mag / v2).
+
+    local h is v(-v:x * v:y / n_mag, 1, -v:y * v:z / n_mag) * (h_mag * cos_i).
+
+    // Given "v", "h" and "delta" (the dot product of "r" and "v")
+    // derive the position vector "r".
+    local delta is sqrt(v2 * r2 ^ 2 - h_mag ^ 2).
+    local r_x is delta * v:x + h:z * v:y - h:y * v:z.
+    local r_y is delta * v:y + h:x * v:z - h:z * v:x.
+    local r_z is delta * v:z + h:y * v:x - h:x * v:y.
+    
+    return v(r_x, r_y, r_z) / v2.
 }

@@ -13,7 +13,7 @@ local delegates is lex(
     "max_time_of_flight", list("default", validate_scalar(6)),
     "final_orbit_periapsis", list(100000, validate_scalar(7)),
     "final_orbit_type", list("circular", validate_list(8, list("circular", "elliptical", "none"))),
-    "final_orbit_orientation", list("prograde", validate_list(9, list("prograde", "polar", "retrograde"))),
+    "final_orbit_orientation", list("prograde", validate_list(9, list("prograde", "retrograde"))),
     "cleanup_maneuver_nodes", list(true, validate_boolean(10))
 ).
 

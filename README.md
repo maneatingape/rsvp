@@ -118,17 +118,15 @@ The insertion orbit can be one of three types:
 
 ### Final Orbit Orientation[*](#note-on-vessel-rendezvous)
 
-The orbit orientation can be one of three types:
+The orbit orientation can be one of two types:
 * **Prograde**
     Rotation of the final orbit will be the same as the rotation of the planet. Suitable for most missions.
-* **Polar**
-    Orbit will pass over the poles of the planet at 90 degrees inclination. Useful for survey missions.
 * **Retrograde**
     Orbit will be the opposite to the rotation of the planet. An example use for this setting is solar powered craft that need to arrive on the daylight side of the planet.
 
 | Key | Default value | Accepted values |
 |:----|:--------------|:----------------|
-| `final_orbit_orientation` | Prograde | One of `String` values "prograde", "polar" or "retrograde" |
+| `final_orbit_orientation` | Prograde | One of `String` values "prograde" or "retrograde" |
 
 ### Note on Vessel rendezvous
 
@@ -189,10 +187,6 @@ The library endeavours to be as flexible as possible, however there are some sit
 * **Transfers *from* moons are not working**
     Transfers *to* moons work just fine, however transfers that eject from a moon to either another moon or a vessel in orbit of the parent planet are going astray. Smaller moons such as Gilly, Minmus, Bop and Pol seem less affected.
     As a workaround, eject from the moon first in approximately the right direction, then plot a follow-up vessel-to-vessel or vessel-to-body transfer.
-* **Polar orbit of Mun from LKO and polar orbit of Ike from LDO produce very high delta transfers**
-    These moons are very close to their parent planet relative to the size of their SOI, so the assumption that the transfer logic makes when calculating orbital offset is not efficient.
-    As a workaround, specify an elliptical prograde final orbit then change inclination at apoapsis.
-
 
 ## Suggest a feature or report a bug
 

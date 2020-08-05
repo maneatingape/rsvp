@@ -47,14 +47,31 @@ local function vessel_to_vessel {
 local function vessel_to_body {
     parameter destination, settings, transfer, result.
 
-    // Calculate transfer orbit details from search result
+    // Calculate transfer orbit details from search result. This transfer will be
+    // *too* accurate with a trajectory that collides with the center of the body.
     local flip_direction is transfer:flip_direction.
     local departure_time is transfer:departure_time.
     local arrival_time is transfer:arrival_time.
     local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time).
 
-    // Create initial approximate maneuver node. This node will be *too* accurate
-    // with a trajectory that collides with the center of the body.
+    // Refine the transfer, taking destination's SOI into account.
+    local delta is 1.
+    local iterations is 0.
+    local final_orbit_periapsis is settings:final_orbit_periapsis.
+    local final_orbit_orientation is settings:final_orbit_orientation.
+
+    until delta < 0.01 or iterations = 15 {
+        local offset is rsvp:offset_from_soi_edge(destination, final_orbit_periapsis, final_orbit_orientation, details:dv2).
+        local duration is rsvp:duration_from_soi_edge(destination, final_orbit_periapsis, details:dv2).
+
+        local next is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time - duration, ship:body, offset).
+        local delta is (next:dv2 - details:dv2):mag.
+
+        set details to next.
+        set iterations to iterations + 1.
+    }
+
+    // Create initial maneuver node
     local maneuver is create_vessel_node(departure_time, details:dv1).
 
     // Check for unexpected encounters
@@ -64,43 +81,6 @@ local function vessel_to_body {
     if not validate_patches:success {
         return validate_patches.
     }
-
-    // Using our arrival velocity at the edge of the destination's SOI, calculate
-    // an initial guess for the "impact parameter", that is the distance that
-    // we should offset in order to miss by roughly our desired periapsis.
-    local final_orbit_periapsis is settings:final_orbit_periapsis.
-    local final_orbit_orientation is settings:final_orbit_orientation.
-    local patch_details is maneuver:patch_details(destination).
-    local impact_parameter is rsvp:impact_parameter(destination, patch_details, final_orbit_periapsis, final_orbit_orientation).
-
-    // Refine our initial guess using a one-dimensional line search with feedback.
-    local initial_guess is impact_parameter:factor.
-    local step_size is initial_guess.
-    local step_threshold is 100.
-    local search is rsvp:line_search(cost@, initial_guess, step_size, step_threshold).
-
-    function cost {
-        parameter v.
-
-        // Delete previous maneuver as it will affect orbit prediction.
-        maneuver:delete().
-        // Predict trajectory to destination, offset by test candidate vector.
-        local candidate is v:x * impact_parameter:vector.
-        local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time, ship:body, candidate).
-        // Create new node then check delta between desired and actual periapsis.
-        set maneuver to create_vessel_node(departure_time, details:dv1).
-        local patch_details is maneuver:patch_details(destination).
-
-        if patch_details <> "none" {
-            return abs(patch_details:periapsis_altitude - final_orbit_periapsis).
-        }
-        else {
-            return "max".
-        }
-    }
-
-    // Make sure maneuver node is last best position.
-    cost(search:position).
 
     // Add actual departure deltav to the result. This will differ slightly
     // from the predicted value due to the offset tweaks.
@@ -122,10 +102,7 @@ function body_to_vessel {
     parameter destination, settings, transfer, result.
 
     // 1st node
-    local flip_direction is transfer:flip_direction.
-    local departure_time is transfer:departure_time.
-    local arrival_time is transfer:arrival_time.
-    local maybe is create_body_departure_node(destination, flip_direction, departure_time, arrival_time).
+    local maybe is create_body_departure_node(false, destination, settings, transfer).
 
     // Node creation could fail due to unexpected encounter
     if not maybe:success {
@@ -135,6 +112,7 @@ function body_to_vessel {
     // Check for unexpected encounters
     local maneuver is maybe:maneuver.
     local expected_patches is list(ship:body, ship:body:body).
+    local arrival_time is transfer:arrival_time.
     local validate_patches is maneuver:validate_patches(expected_patches, arrival_time).
 
     if not validate_patches:success {
@@ -167,10 +145,7 @@ local function body_to_body {
     parameter destination, settings, transfer, result.
 
     // 1st node
-    local flip_direction is transfer:flip_direction.
-    local departure_time is transfer:departure_time.
-    local arrival_time is transfer:arrival_time.
-    local maybe is create_body_departure_node(destination, flip_direction, departure_time, arrival_time).
+    local maybe is create_body_departure_node(true, destination, settings, transfer).
 
     // Node creation could fail due to unexpected encounter
     if not maybe:success {
@@ -180,34 +155,11 @@ local function body_to_body {
     // Check for unexpected encounters
     local maneuver is maybe:maneuver.
     local expected_patches is list(ship:body, ship:body:body, destination).
+    local arrival_time is transfer:arrival_time.
     local validate_patches is maneuver:validate_patches(expected_patches, arrival_time).
 
     if not validate_patches:success {
         return validate_patches.
-    }
-
-    // Using our arrival velocity at the edge of the destination's SOI, calculate
-    // an initial guess for the "impact parameter", that is the distance that
-    // we should offset in order to miss by roughly our desired periapsis.
-    local final_orbit_periapsis is settings:final_orbit_periapsis.
-    local final_orbit_orientation is settings:final_orbit_orientation.
-    local patch_details is maneuver:patch_details(destination).
-    local impact_parameter is rsvp:impact_parameter(destination, patch_details, final_orbit_periapsis, final_orbit_orientation).
-
-    // Adjust the intercept *once* using the initial impact parameter estimate.
-    // Unlike the vessel_to_body case, an interative search provides no real
-    // benefit and frequently makes things worse.
-    // For most planets this gets reasonably close (within ~20%). If a more
-    // precise transfer is needed then a followup correction burn can be
-    // calculated once in interplantery space using the vessel_to_body function.
-    local offset is impact_parameter:factor * impact_parameter:vector.
-    local periapsis_time is patch_details:periapsis_time.
-    maneuver:delete().
-    set maybe to create_body_departure_node(destination, flip_direction, departure_time, periapsis_time, offset).
-
-    // Check again for unexpected encounters
-    if not maybe:success {
-        return maybe.
     }
 
     // Add actual departure deltav to the result. This will differ somewhat
@@ -264,21 +216,30 @@ local function create_body_arrival_node {
 // then feedback this error in order to correct our initial guess. This
 // converges rapidly to an accurate intercept.
 local function create_body_departure_node {
-    parameter destination, flip_direction, departure_time, arrival_time, offset is v(0, 0, 0).
+    parameter to_body, destination, settings, transfer.
+
+    local flip_direction is transfer:flip_direction.
+    local departure_time is transfer:departure_time.
+    local arrival_time is transfer:arrival_time.
 
     local parent is ship:body.
     local grandparent is parent:body.
     local expected_patches is list(parent, grandparent).
 
     // Initial guess
-    local details is rsvp:transfer_deltav(parent, destination, flip_direction, departure_time, arrival_time, grandparent, offset).
+    local details is rsvp:transfer_deltav(parent, destination, flip_direction, departure_time, arrival_time).
     local departure_deltav is details:dv1.
     local maneuver is create_maneuver_node_in_correct_location(departure_time, departure_deltav).
 
+    // Refine the node
     local delta is v(1, 0, 0).
     local iterations is 0.
+    local final_orbit_periapsis is settings:final_orbit_periapsis.
+    local final_orbit_orientation is settings:final_orbit_orientation.
+    local duration is 0.
+    local offset is v(0, 0, 0).
 
-    until delta:mag < 0.001 or iterations = 15 {
+    until delta:mag < 0.01 or iterations = 15 {
         // Expect the unexpected
         local patch_details is maneuver:patch_details(grandparent).
         local soi_time is choose "max" if patch_details = "none" else patch_details:soi_time.
@@ -288,9 +249,15 @@ local function create_body_departure_node {
             return validate_patches.
         }
 
-        // Calculate correction using predicted flight path
-        local details is rsvp:transfer_deltav(ship, destination, flip_direction, soi_time, arrival_time, grandparent, offset).
+        // Take SOI into account
+        if to_body {
+            set offset to rsvp:offset_from_soi_edge(destination, final_orbit_periapsis, final_orbit_orientation, details:dv2).
+            set duration to rsvp:duration_from_soi_edge(destination, final_orbit_periapsis, details:dv2).
+        }
 
+        // Calculate correction using predicted flight path
+        local details is rsvp:transfer_deltav(ship, destination, flip_direction, soi_time, arrival_time - duration, grandparent, offset).
+        
         // Update our current departure velocity with this correction.
         set delta to details:dv1.
         set iterations to iterations + 1.
