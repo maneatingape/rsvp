@@ -404,5 +404,12 @@ local function time_at_mean_anomaly {
     local t0 is orbit:epoch.
     local M0 is orbit:meananomalyatepoch * constant:degtorad. // Careful with units
 
-    return t0 + (M - M0) / n.
+    // Calculate mean anomaly difference, clamping to the range [0, 2π]
+    // so that all times are in the future.
+    local delta_M is M - M0.
+    if delta_M < 0 {
+        set delta_M to delta_M + 2 * constant:pi.
+    }
+    
+    return t0 + delta_M / n.
 }
