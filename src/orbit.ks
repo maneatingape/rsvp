@@ -417,7 +417,7 @@ local function duration_from_soi_edge {
     return M / n.
 }
 
-// This function is based the equations from the paper:
+// This function is based on the approach from the paper:
 // "A new method of patched-conic for interplanetary orbit"
 // by Jin Li, Jianhui Zhao and Fan Li
 // https://doi.org/10.1016/j.ijleo.2017.10.153

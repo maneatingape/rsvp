@@ -155,7 +155,7 @@ local function time_of_flight {
 
     // For the hyperbolic case when "a" is less than zero, large values of "x"
     // can cause slight numeric inaccuracies in the values of "f" and "g" to
-    // accumulate and result in a negative sum. The "min" function acts as a
+    // accumulate and result in a negative sum. The "max" function acts as a
     // guard in this case to prevent errors when taking the log of this value.
     local psi is choose constant:degtorad * arccos(g) if a > 0 else ln(max(1e-300, f + g)).
 

@@ -131,6 +131,16 @@ local function validate_options {
         }
     }
 
+    // Check that final orbit periapsis is within destination SOI
+    if destination:istype("body") {
+        local key is "final_orbit_periapsis".
+        local limit is floor(destination:soiradius - destination:radius).
+
+        if options:haskey(key) and options[key] >= limit {
+            problem(304, "Option '" + key + "'' must be less than " + limit).
+        }
+    }
+
     // Check for unknown keys that indicate a typo.
     local found is list().
 
