@@ -157,7 +157,7 @@ local function time_of_flight {
     // can cause slight numeric inaccuracies in the values of "f" and "g" to
     // accumulate and result in a negative sum. The "min" function acts as a
     // guard in this case to prevent errors when taking the log of this value.
-    local psi is choose constant:degtorad * arccos(g) if a > 0 else ln(min(1e-300, f + g)).
+    local psi is choose constant:degtorad * arccos(g) if a > 0 else ln(max(1e-300, f + g)).
 
     return (psi / b - x + lambda * y) / a.
 }
