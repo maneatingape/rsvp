@@ -183,10 +183,7 @@ local function body_to_body {
 local function create_vessel_node {
     parameter epoch_time, deltav.
 
-    local osv is rsvp:orbital_state_vectors(ship, epoch_time).
-    local projection is rsvp:maneuver_node_vector_projection(osv, deltav).
-
-    return rsvp:create_maneuver(true, epoch_time, projection).
+    return rsvp:create_maneuver(true, epoch_time, deltav).
 }
 
 // Create an arrival node for a body, using the various "final_orbit..."
@@ -203,7 +200,7 @@ local function create_body_arrival_node {
     local deltav is insertion_deltav(destination, periapsis_altitude, soi_velocity).
 
     // Brake by the right amount at the right time.
-    add node(periapsis_time, 0, 0, -deltav).
+    rsvp:create_raw_maneuver(false, periapsis_time, v(0, 0, -deltav)).
 
     return lex("time", periapsis_time, "deltav", deltav).
 }
@@ -295,14 +292,13 @@ local function create_maneuver_node_in_correct_location {
         local osv is rsvp:orbital_state_vectors(ship, epoch_time).
         local ejection_deltav is rsvp:vessel_ejection_deltav_from_body(ship:body, osv, departure_deltav).
 
-        return choose ejection_deltav:mag if cost_only else rsvp:maneuver_node_vector_projection(osv, ejection_deltav).
+        return choose ejection_deltav:mag if cost_only else ejection_deltav.
     }
 
     // Search for time in ship's orbit where ejection deltav is lowest.
     local cost is ejection_details@:bind(true).
     local result is rsvp:line_search(cost, departure_time, 120, 1).
-    // Ejection velocity projected onto ship prograde, normal and radial vectors.
-    local projection is ejection_details(false, result:position).
+    local ejection_deltav is ejection_details(false, result:position).
 
-    return rsvp:create_maneuver(false, result:position:x, projection).
+    return rsvp:create_maneuver(false, result:position:x, ejection_deltav).
 }

@@ -2,10 +2,21 @@
 
 parameter export.
 export("create_maneuver", create_maneuver@).
+export("create_raw_maneuver", create_raw_maneuver@).
 
 // Convenience wrapper around a maneuver node that provides methods to predict
 // details of future encounters.
 local function create_maneuver {
+    parameter from_vessel, epoch_time, deltav.
+
+    local osv is rsvp:orbital_state_vectors(ship, epoch_time).
+    local projection is maneuver_node_vector_projection(osv, deltav).
+
+    return create_raw_maneuver(from_vessel, epoch_time, projection).
+}
+
+// Create a "raw" node using exactly the deltav without modifying it.
+local function create_raw_maneuver {
     parameter from_vessel, epoch_time, deltav.
 
     local maneuver is node(epoch_time, deltav:x, deltav:y, deltav:z).
@@ -18,6 +29,29 @@ local function create_maneuver {
         "patch_details", patch_details@:bind(maneuver, from_vessel),
         "validate_patches", validate_patches@:bind(maneuver)
     ).
+}
+
+// Returns the vector projection of a velocity vector onto the given orbital
+// state vector. This comes in useful as most vectors use KSP's raw coordinate
+// system, however maneuver node's prograde, radial and normal components are
+// relative to the vessel's velocity and position *at the time of the node*.
+local function maneuver_node_vector_projection {
+    parameter osv, velocity.
+
+    // Unit vectors in vessel prograde and normal directions.
+    local unit_prograde is osv:velocity:normalized.
+    local unit_normal is vcrs(osv:velocity, osv:position):normalized.
+    // KSP quirk: Manuever node "radial" is not the usual meaning of radial
+    // in the sense of a vector from the center of the parent body towards
+    // the ship, but rather a vector orthogonal to prograde and normal vectors.
+    local unit_radial is vcrs(unit_normal, unit_prograde).
+
+    // Components of velocity parallel to respective unit vectors.
+    local radial is vdot(unit_radial, velocity).
+    local normal is vdot(unit_normal, velocity).
+    local prograde is vdot(unit_prograde, velocity).
+
+    return v(radial, normal, prograde).
 }
 
 local function node_time {

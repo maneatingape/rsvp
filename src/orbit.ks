@@ -3,7 +3,6 @@
 parameter export.
 export("transfer_deltav", transfer_deltav@).
 export("orbital_state_vectors", orbital_state_vectors@).
-export("maneuver_node_vector_projection", maneuver_node_vector_projection@).
 export("equatorial_ejection_deltav", equatorial_ejection_deltav@).
 export("vessel_ejection_deltav", vessel_ejection_deltav@).
 export("vessel_ejection_deltav_from_body", vessel_ejection_deltav_from_body@).
@@ -71,29 +70,6 @@ local function orbital_state_vectors {
     local velocity is velocityat(orbitable, epoch_time):orbit.
 
     return lex("position", position, "velocity", velocity).
-}
-
-// Returns the vector projection of a velocity vector onto the given orbital
-// state vector. This comes in useful as most vectors use KSP's raw coordinate
-// system, however maneuver node's prograde, radial and normal components are
-// relative to the vessel's velocity and position *at the time of the node*.
-local function maneuver_node_vector_projection {
-    parameter osv, velocity.
-
-    // Unit vectors in vessel prograde and normal directions.
-    local unit_prograde is osv:velocity:normalized.
-    local unit_normal is vcrs(osv:velocity, osv:position):normalized.
-    // KSP quirk: Manuever node "radial" is not the usual meaning of radial
-    // in the sense of a vector from the center of the parent body towards
-    // the ship, but rather a vector orthogonal to prograde and normal vectors.
-    local unit_radial is vcrs(unit_normal, unit_prograde).
-
-    // Components of velocity parallel to respective unit vectors.
-    local radial is vdot(unit_radial, velocity).
-    local normal is vdot(unit_normal, velocity).
-    local prograde is vdot(unit_prograde, velocity).
-
-    return v(radial, normal, prograde).
 }
 
 // Calculate the delta-v required to eject into a hyperbolic transfer orbit
