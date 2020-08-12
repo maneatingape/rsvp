@@ -13,6 +13,7 @@ local source_files is list(
     "main",
     "maneuver",
     "orbit",
+    "refine",
     "search",
     "transfer",
     "validate"

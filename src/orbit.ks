@@ -10,6 +10,7 @@ export("circular_insertion_deltav", orbit_insertion_deltav@:bind(true)).
 export("elliptical_insertion_deltav", orbit_insertion_deltav@:bind(false)).
 export("vessel_insertion_deltav", vessel_insertion_deltav@).
 export("none_insertion_deltav", none_insertion_deltav@).
+export("minimum_escape_velocity", minimum_escape_velocity@).
 export("ideal_hohmann_transfer_period", ideal_hohmann_transfer_period@).
 export("synodic_period", synodic_period@).
 export("max_period", max_period@).
@@ -224,7 +225,6 @@ local function orbit_insertion_deltav {
     return ve - v1.
 }
 
-
 // Vessels have no SOI or gravity so the delta-v required is exactly the
 // transfer orbit departure or arrival delta-v.
 local function vessel_insertion_deltav {
@@ -233,12 +233,37 @@ local function vessel_insertion_deltav {
     return arrival_velocity:mag.
 }
 
-// Calculates the delta-v required for a flyby, aerocapture
-// or extreme lithobrake...
+// Calculate the delta-v required for a flyby, aerocapture or extreme lithobrake...
 local function none_insertion_deltav {
     parameter destination, altitude, arrival_velocity.
 
     return 0.
+}
+
+// Calculate the minimum velocity that a craft can leave its current SOI with.
+// As all KSP SOIs are finite, this will always be non-zero. For most planets
+// this will be less than the minimum Hohmann transfer velocity to the nearest
+// neighbour.
+//
+// For some moons with very large SOIs relative to their orbits this value will
+// be *greater*. For example, Laythe's minimum escape velocity is higher than
+// a direct Hohmann transfer to Vall, and even higher than a Hohmann transfer
+// to Tylo at certain phase angles.
+//
+// For maximum safety factor this assumes that the ejection burn takes place at
+// the current apoapsis, giving the maximum possible value. If the ejection burn
+// takes place anywhere else on the orbit, then the actual value will be lower.
+local function minimum_escape_velocity {
+    parameter orbit.
+
+    local mu is orbit:body:mu.
+    local r1 is orbit:body:radius + orbit:apoapsis.
+    local r2 is orbit:body:soiradius.
+
+    local a is (r1 + r2) / 2.
+    local ve is sqrt(mu * (2 / r2 - 1 / a)).
+
+    return ve.
 }
 
 // Calculate the time of flight for an idealized Hohmann transfer orbit between
@@ -310,27 +335,6 @@ local function time_at_periapsis {
     return time_at_mean_anomaly(orbit, 0).
 }
 
-// Calculate the time at which an object on a hyperbolic orbit will leave its
-// current SOI. Positive mean anomaly is when the object is past periapsis and
-// heading towards the edge of the SOI.
-local function time_at_soi_edge {
-    parameter destination.
-
-    local r2 is destination:body:soiradius.
-    local orbit is destination:orbit.
-    local a is orbit:semimajoraxis.
-    local e is orbit:eccentricity.
-
-    // Calculate mean anomaly from eccentric anomaly using hyperbolic variant
-    // of Keplers' equation.
-    local cosh_H is (a - r2) / (a * e).
-    local sinh_H is sqrt(cosh_H ^ 2 - 1).
-    local H is ln(cosh_H + sinh_H).
-    local M is e * sinh_H - H.
-
-    return time_at_mean_anomaly(orbit, M).
-}
-
 // Calculate the universal time for an object at a certain point in an orbit
 // given the mean anomaly at that point.
 local function time_at_mean_anomaly {
@@ -352,8 +356,29 @@ local function time_at_mean_anomaly {
     if delta_M < 0 {
         set delta_M to delta_M + 2 * constant:pi.
     }
-    
+
     return t0 + delta_M / n.
+}
+
+// Calculate the time at which an object on a hyperbolic orbit will leave its
+// current SOI. Positive mean anomaly is when the object is past periapsis and
+// heading towards the edge of the SOI.
+local function time_at_soi_edge {
+    parameter destination.
+
+    local r2 is destination:body:soiradius.
+    local orbit is destination:orbit.
+    local a is orbit:semimajoraxis.
+    local e is orbit:eccentricity.
+
+    // Calculate mean anomaly from eccentric anomaly using hyperbolic variant
+    // of Keplers' equation.
+    local cosh_H is (a - r2) / (a * e).
+    local sinh_H is sqrt(cosh_H ^ 2 - 1).
+    local H is ln(cosh_H + sinh_H).
+    local M is e * sinh_H - H.
+
+    return time_at_mean_anomaly(orbit, M).
 }
 
 // Calculate the time duration that a vessel will take from the edge of
@@ -433,6 +458,6 @@ local function offset_from_soi_edge {
     local r_x is delta * v:x + h:z * v:y - h:y * v:z.
     local r_y is delta * v:y + h:x * v:z - h:z * v:x.
     local r_z is delta * v:z + h:y * v:x - h:x * v:y.
-    
+
     return v(r_x, r_y, r_z) / v2.
 }

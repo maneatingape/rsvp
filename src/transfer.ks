@@ -98,7 +98,7 @@ local function vessel_to_body {
 
 // Vessel to body rendezvous is not as accurate as other transfer types, so a
 // correction burn is recommended once in interplanetary space.
-function body_to_vessel {
+local function body_to_vessel {
     parameter destination, settings, transfer, result.
 
     // 1st node
@@ -254,7 +254,7 @@ local function create_body_departure_node {
 
         // Calculate correction using predicted flight path
         local details is rsvp:transfer_deltav(ship, destination, flip_direction, soi_time, arrival_time - duration, grandparent, offset).
-        
+
         // Update our current departure velocity with this correction.
         set delta to details:dv1.
         set iterations to iterations + 1.

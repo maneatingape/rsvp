@@ -62,35 +62,8 @@ local function find_launch_window {
 
     local search_threshold is max(120, min(0.002 * search_interval, 3600)).
 
-    // Compose orbital functions.
-    local transfer_deltav is rsvp:transfer_deltav:bind(origin, destination).
-
-    local prefix is choose "vessel" if settings:origin_type = "vessel" else "equatorial".
-    local ejection_deltav is rsvp[prefix + "_ejection_deltav"].
-    local initial_orbit_periapsis is max(ship:periapsis, 0).
-
-    set prefix to choose "vessel" if settings:destination_type = "vessel" else settings:final_orbit_type.
-    local insertion_deltav is rsvp[prefix + "_insertion_deltav"].
-    local final_orbit_periapsis is settings:final_orbit_periapsis.
-
-    function transfer_details {
-        parameter flip_direction, departure_time, arrival_time.
-
-        local details is transfer_deltav(flip_direction, departure_time, arrival_time).
-        local ejection is ejection_deltav(origin, initial_orbit_periapsis, details).
-        local insertion is insertion_deltav(destination, final_orbit_periapsis, details:dv2).
-
-        return lex("ejection", ejection, "insertion", insertion).
-    }
-
-    function transfer_cost {
-        parameter flip_direction, departure_time, time_of_flight.
-
-        local arrival_time is departure_time + time_of_flight.
-        local details is transfer_details(flip_direction, departure_time, arrival_time).
-
-        return details:ejection + details:insertion.
-    }
+    // Build cost function.
+    local transfer_details is rsvp:build_transfer_details(origin, destination, settings).
 
     // Find lowest deltav transfer.
     local transfer is iterated_local_search(
@@ -100,7 +73,7 @@ local function find_launch_window {
         max_time_of_flight,
         search_interval,
         search_threshold,
-        transfer_cost@).
+        transfer_details).
 
     // Re-run the Lambert solver to obtain deltav values.
     local details is transfer_details(transfer:flip_direction, transfer:departure_time, transfer:arrival_time).
@@ -154,13 +127,13 @@ local function iterated_local_search {
 
         // Calculate the intial delta-v value at the starting point and also figure
         // out which direction we should be going.
-        local prograde_deltav is total_deltav(false, x, y).
-        local retrograde_deltav is total_deltav(true, x, y).
+        local prograde_deltav is cost(false, v(x, y, 0)).
+        local retrograde_deltav is cost(true, v(x, y, 0)).
         local flip_direction is retrograde_deltav < prograde_deltav.
         local initial_deltav is choose retrograde_deltav if flip_direction else prograde_deltav.
 
         function cost {
-            parameter v.
+            parameter flip_direction, v.
 
             // y is always bounded to the interval [0, max_time_of_flight]
             if v:x < min_x or v:x > max_x or v:y < 0 or v:y > max_time_of_flight {
@@ -168,12 +141,13 @@ local function iterated_local_search {
             }
             else {
                 set invocations to invocations + 1.
-                return total_deltav(flip_direction, v:x, v:y).
+                local details is total_deltav(flip_direction, v:x, v:x + v:y).
+                return details:ejection + details:insertion.
             }
         }
 
         // Start a search from this location, updating "result" if "candidate" delta-v is lower.
-        local candidate is rsvp:grid_search(cost@, x, y, initial_deltav, step_size, step_threshold).
+        local candidate is rsvp:grid_search(cost@:bind(flip_direction), x, y, initial_deltav, step_size, step_threshold).
         local departure_time is candidate:position:x.
         local arrival_time is candidate:position:x + candidate:position:y.
         local total_deltav is candidate:minimum.
@@ -182,7 +156,7 @@ local function iterated_local_search {
             print "Search offset: " + seconds_to_kerbin_time(x).
             print "  Departure: " + seconds_to_kerbin_time(departure_time).
             print "  Arrival: " + seconds_to_kerbin_time(arrival_time).
-            print "  Delta-v: " + round(total_deltav).
+            print "  Delta-v: " + safe_round(total_deltav).
         }
 
         if total_deltav < result:total_deltav {
@@ -203,7 +177,7 @@ local function iterated_local_search {
         print "Best Result".
         print "  Departure: " + seconds_to_kerbin_time(result:departure_time).
         print "  Arrival: " + seconds_to_kerbin_time(result:arrival_time).
-        print "  Delta-v: " + round(result:total_deltav).
+        print "  Delta-v: " + safe_round(result:total_deltav).
     }
 
     return result.
@@ -216,4 +190,11 @@ local function seconds_to_kerbin_time {
     local timespan is time(seconds).
 
     return timespan:calendar + " " + timespan:clock.
+}
+
+// Safely round a variable that could be a string
+local function safe_round {
+    parameter x.
+
+    return choose round(x) if x:istype("scalar") else x.
 }
