@@ -447,10 +447,16 @@ local function offset_from_soi_edge {
     // Specific angular momentum vector, chosen to minimize inclination.
     local h_mag is ve * r1.
     local n_mag is v:x ^ 2 + v:z ^ 2.
-    local sign is choose 1 if orientation = "prograde" else -1.
-    local cos_i is sign * sqrt(n_mag / v2).
+    local h is "none".
 
-    local h is v(-v:x * v:y / n_mag, 1, -v:y * v:z / n_mag) * (h_mag * cos_i).
+    if orientation = "polar" {
+        set h to v(v:z, 0, -v:x) * (h_mag / sqrt(n_mag)).
+    }
+    else {
+        local sign is choose 1 if orientation = "prograde" else -1.
+        local cos_i is sign * sqrt(n_mag / v2).
+        set h to v(-v:x * v:y / n_mag, 1, -v:y * v:z / n_mag) * (h_mag * cos_i).
+    }
 
     // Given "v", "h" and "delta" (the dot product of "r" and "v")
     // derive the position vector "r".

@@ -118,15 +118,17 @@ The insertion orbit can be one of three types:
 
 ### Final Orbit Orientation[*](#note-on-vessel-rendezvous)
 
-The orbit orientation can be one of two types:
+The orbit orientation can be one of three types:
 * **Prograde**
     Rotation of the final orbit will be the same as the rotation of the planet. Suitable for most missions.
+* **Polar**
+    Orbit will pass over the poles of the planet at 90 degrees inclination. Useful for survey missions.
 * **Retrograde**
     Orbit will be the opposite to the rotation of the planet. An example use for this setting is solar powered craft that need to arrive on the daylight side of the planet.
 
 | Key | Default value | Accepted values |
 |:----|:--------------|:----------------|
-| `final_orbit_orientation` | Prograde | One of `String` values "prograde" or "retrograde" |
+| `final_orbit_orientation` | Prograde | One of `String` values "prograde", "polar" or "retrograde" |
 
 ### Note on Vessel rendezvous
 
