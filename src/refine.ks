@@ -3,6 +3,18 @@
 parameter export.
 export("build_transfer_details", build_transfer_details@).
 
+// Compose several orbital sub-functions to build the overall "cost" function
+// used when searching the porkchop plot. The most important difference is
+// between point-to-point transfers and soi-to-soi transfers.
+//
+// Point to point transfers treat the origin and destination as zero-width points
+// and only use a single invocation of the Lamber solver for each point on the
+// plot.
+//
+// SOI to SOI transfers take the spherical nature of the source and destination
+// into account and run the Lambert solver multiple times, refining the position
+// and time of the transfer for more accuracy. However as this is slower, it is
+// only used when the ration of a body's SOI to its periapsis exceeds a threshold.
 local function build_transfer_details {
     parameter origin, destination, settings.
 
@@ -10,7 +22,6 @@ local function build_transfer_details {
     local to_vessel is settings:destination_type = "vessel".
     local initial_orbit_periapsis is max(ship:periapsis, 0).
 
-    // Compose orbital functions.
     local transfer_deltav is rsvp:transfer_deltav:bind(origin, destination).
     local validate_orbit is build_validate_orbit(from_vessel).
     local ejection_deltav is build_ejection_deltav(from_vessel, origin, initial_orbit_periapsis).
@@ -31,6 +42,33 @@ local function build_transfer_details {
     }
 }
 
+// Convenience method that returns a value indicating that the transfer
+// is not possible, for example orbital constraints are breached or the
+// iterative refinement failed to converge.
+local function failure {
+    return lex("ejection", "none", "insertion", "none").
+}
+
+// Check if a body's SOI to Periapsis ration is below a threshold of 1%.
+// All planets except Jool in the stock game are under this threshold.
+// All moons except Gilly and Pol are over this threshold.
+local function below_soi_threshold {
+    parameter body.
+
+    local ratio is body:soiradius / body:orbit:periapsis.
+
+    return ratio < 0.01.
+}
+
+// Returns a delegate that validates transfer orbit constraints.
+// Vessels are free to make any manuever no matter how small.
+//
+// Due to KSP's finite SOI, each celestial body has a deltav floor that a
+// transfer cannot go below. For planets this doesn't matter too
+// much, as the delta-v to the nearest neighbour will easily exceed this.
+// However for moons with large SOI to Periapsis ratio, the minimum value can be
+// high. For example a direct Hohmann transfer from Laythe to Vall is impossible
+// as Laythe's minimum escape velocity is greater than this value.
 local function build_validate_orbit {
     parameter from_vessel.
 
@@ -69,6 +107,8 @@ local function build_insertion_deltav {
     return delegate:bind(destination, final_orbit_periapsis).
 }
 
+// Combine the delegates returned by the previous two function into a single
+// convenience delegate.
 local function build_success {
     parameter ejection_deltav, insertion_deltav.
 
@@ -82,18 +122,8 @@ local function build_success {
     }.
 }
 
-local function failure {
-    return lex("ejection", "none", "insertion", "none").
-}
-
-local function below_soi_threshold {
-    parameter body.
-
-    local ratio is body:soiradius / body:orbit:periapsis.
-
-    return ratio < 0.01.
-}
-
+// Vessels have no SOI and need no adjustment. Returns the same position and
+// time that has been passed in.
 local function build_nop_adjustment {
     parameter orbitable.
 
@@ -109,6 +139,12 @@ local function build_nop_adjustment {
     }.
 }
 
+// Calculate the position where a vessel will exit the origin SOI and the
+// duration of the journey from periapsis to edge of SOI, given a desired
+// ejection velocity.
+//
+// One minor quirk, the orbit orientation is based on an injection trajectory,
+// so a prograde ejection is a "retrograde" injection.
 local function build_adjust_departure {
     parameter body, altitude.
 
@@ -127,6 +163,8 @@ local function build_adjust_departure {
     }.
 }
 
+// Calculate the position that a vessel should enter the SOI, in order to
+// end up at the desired orientation and altitude.
 local function build_adjust_arrival {
     parameter body, settings.
 
@@ -148,6 +186,7 @@ local function build_adjust_arrival {
     }.
 }
 
+// Point to point transfer neglecting the size of any SOIs.
 local function build_point_to_point_transfer {
     parameter transfer_deltav, validate_orbit, success.
 
@@ -160,6 +199,7 @@ local function build_point_to_point_transfer {
     }.
 }
 
+// Iteratively refine initial transfer in order to take SOI size into account.
 local function build_soi_to_soi_transfer {
     parameter transfer_deltav, validate_orbit, success, origin, adjust_departure, adjust_arrival.
 

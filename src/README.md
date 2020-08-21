@@ -55,3 +55,11 @@ Checks that the types and values of user-supplied options match expectations. Ad
 ## Entrypoint [(main.ks)](main.ks)
 
 Loads all the other scripts, then orchestrates the high level logic flow. When loading other scripts, the kOS `scriptpath` function is used so that the library can be located anywhere the user wants. To prevent pollution of the global namespace, all functions are scoped local then loaded into the `rsvp` lexicon, so that there is only a single external interface.
+
+## Refine [(refine.ks)](refine.ks)
+
+Compose several orbital sub-functions to build the overall "cost" function used when searching the porkchop plot. The most important difference is between point-to-point transfers and soi-to-soi transfers.
+
+Point to point transfers treat the origin and destination as zero-width points and only use a single invocation of the Lamber solver for each point on the plot.
+
+SOI to SOI transfers take the spherical nature of the source and destination into account and run the Lambert solver multiple times, refining the position and time of the transfer for more accuracy. However as this is slower, it is only used when the ration of a body's SOI to its periapsis exceeds a threshold.
