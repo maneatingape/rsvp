@@ -4,7 +4,7 @@
 
 ### New Features
 
-This release adds a new mathematical approach to refining tranfers when the ratio of the destination SOI to Periapsis exceeds a threshold. This fixes 2 issues:
+This release adds a new mathematical approach to refining transfers when the ratio of the destination SOI to Periapsis exceeds a threshold. This fixes 2 issues:
 * Transfers to larger moons (especially in the Jool system) are much less likely to go astray.
 * Polar orbit orientation when travelling to Mun or Ike no longer results in huge delta-v values.
 
