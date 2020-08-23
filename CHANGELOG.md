@@ -1,5 +1,31 @@
 # Changelog
 
+## v6
+
+### New Features
+
+This release adds a new mathematical approach to refining tranfers when the ratio of the destination SOI to Periapsis exceeds a threshold. This fixes 2 issues:
+* Transfers to larger moons (especially in the Jool system) are much less likely to go astray.
+* Polar orbit orientation when travelling to Mun or Ike no longer results in huge delta-v values.
+
+The new approach is based on the paper [A new method of patched-conic for interplanetary orbit](https://doi.org/10.1016/j.ijleo.2017.10.153) by Jin Li, Jianhui Zhao and Fan Li.
+
+Given a velocity vector at SOI boundary, periapsis altitude and inclination, this approach calculates the position vector that satisifies these contraints. This position vector is combined in a feedback loop with the Lambert solver to refine the initial estimate from one that only considers planets as points to one that takes the SOI spheres into account. This removes the need both for the `impact_parameter` function and the line search algorithm simplifying the vessel-to-body case. The body-to-body case also simplifies into a single step instead of two.
+
+For vessels and planets with a SOI to Periapsis ratio of less than 1% the existing strategy is used. This strategy considers the planets as a zero-width point on the assumption that over large distance only small adjustments will be need to the predicted transfer.
+
+However some bodies in KSP have extremely large SOI to Periapsis ratios, for example Ike (38%), Mun (23%) and Tylo (17%). For transfers to and from these bodies, the SOI sphere needs to be taken into account when finding the lowest cost transfer. The `offset_from_soi_edge` and `duration_from_soi_edge` function in `orbit.ks` predict the time and position where a craft will exit/enter SOI.
+
+Interestingly another challenge with very large SOI to Periapsis ratios is that the minimum escape velocity can be higher than the desired transfer. For example a direct Hohmann transfer from Laythe to Vall is impossible, as the minmum escape velocity from Laythe is *higher* than the velocity required. The search algorithm now supports a minimum value for deltav, making this type of transfer possible.
+
+### Bug Fixes
+* Fix calculation of periapis time when insertion orbit is mathematically elliptical. Insertion manuever node will now be placed in the correct location.
+* Fix bug in a guard clause in the Lambert solver that was throwing `NaN` exception is certain situations.
+
+### Technical Improvements
+* Add validation check to `final_orbit_periapsis` option to ensure that supplied value is within SOI radius of destination.
+* Refactor maneuver related code from `orbit.ks` to `maneuver.ks`.
+
 ## v5
 
 ### Bug Fixes
