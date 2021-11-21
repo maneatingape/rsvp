@@ -51,10 +51,17 @@ local function goto {
         local key is settings:origin_type + "_to_" + settings:destination_type.
         set result to rsvp[key](destination, settings, transfer, result).
 
-        // In the case of failure delete any manuever nodes created.
-        if not result:success and settings:cleanup_maneuver_nodes {
-            for maneuver in allnodes {
-                remove maneuver.
+        if not result:success {
+            // Print details to the console
+            if settings:verbose {
+                print result.
+            }
+
+            // In the case of failure delete any manuever nodes created.
+            if settings:cleanup_maneuver_nodes {
+                for maneuver in allnodes {
+                    remove maneuver.
+                }
             }
         }
     }
