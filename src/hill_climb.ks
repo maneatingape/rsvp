@@ -17,9 +17,9 @@ local function line_search {
 
 // Convenience wrapper for searching two dimensions.
 local function grid_search {
-    parameter cost, x, y, minimum, step_size, step_threshold.
+    parameter cost, x, y, scale_y, minimum, step_size, step_threshold.
 
-    local dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, 1, 0), v(0, -1, 0)).
+    local dimensions is list(v(1, 0, 0), v(-1, 0, 0), v(0, scale_y, 0), v(0, -scale_y, 0)).
     local position is v(x, y, 0).
 
     return coordinate_descent(dimensions, cost, position, minimum, step_size, step_threshold).
