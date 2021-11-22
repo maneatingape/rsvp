@@ -26,6 +26,7 @@ This short video shows these features in action:
 3. Launch a craft into a stable orbit of Kerbin.
 3. Run this script from the craft:
     ```
+    set config:ipu to 2000.
     runoncepath("0:/rsvp/main").
     local options is lexicon("create_maneuver_nodes", "both", "verbose", true).
     rsvp:goto(duna, options).
