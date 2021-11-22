@@ -109,13 +109,15 @@ local function iterated_local_search {
     // the final value in most cases.
     local y is max_time_of_flight * 0.5.
     // The porkchop plot is not scaled evenly in the x and y dimensions.
-    // In particular, transfers with a very large ratio between the periapsis
-    // and apoapsis (for example Moho to Eeloo), each search interval is tall
+    // Especially for transfers with a very large ratio between the periapsis
+    // and apoapsis (for example Moho to Eeloo) each search interval is tall
     // and narrow. The step size is based on the x direction, so can be slow
     // when the hill climb algorithm is searching in the y direction. To speed
-    // up the search, scale the step_size in the y direction. 
+    // up the search, scale the step_size in the y direction.
+    // The width of the search space is 3 search intervals (see min_x and
+    // max_x declarations below) and the height is max_time_of_flight.
     local step_size is search_interval * 0.1.
-    local scale_y is max_time_of_flight / search_interval.
+    local scale_y is max_time_of_flight / (3 * search_interval).
 
     // Sneaky trick here. When comparing a scalar and a string, kOS converts the
     // scalar to a string then compares them lexicographically.
