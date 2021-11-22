@@ -1,5 +1,16 @@
 # Changelog
 
+## v7
+
+### New Features
+This release increases the speed of the hill climbing algorithm when searching the pork chop plot in certain scenarios. The larger the relative difference between the origin and destination orbits, the more benefit this provides. The eventual transfer found and delta-v needed is the same as before but takes less time to find.
+
+For example a transfer search from Kerbin to Duna takes the same time. A transfer search from Moho to Eeloo takes 15% of the previous time.
+
+### Technical Improvements
+* When verbose mode is enabled, print details if a problem occurs during a transfer search. 
+* Add CPU speed boost to quickstart code snippet
+
 ## v6
 
 ### New Features
