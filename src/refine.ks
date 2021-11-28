@@ -23,13 +23,14 @@ local function build_transfer_details {
     local initial_orbit_periapsis is max(ship:periapsis, 0).
 
     local transfer_deltav is rsvp:transfer_deltav:bind(origin, destination).
-    local validate_orbit is build_validate_orbit(from_vessel).
+    local validate_ejection_orbit is build_validate_ejection_orbit(from_vessel).
+    local validate_insertion_orbit is build_validate_insertion_orbit(to_vessel, destination, settings).
     local ejection_deltav is build_ejection_deltav(from_vessel, origin, initial_orbit_periapsis).
     local insertion_deltav is build_insertion_deltav(to_vessel, destination, settings).
     local success is build_success(ejection_deltav, insertion_deltav).
 
     if (from_vessel or below_soi_threshold(origin)) and (to_vessel or below_soi_threshold(destination)) {
-        return build_point_to_point_transfer(transfer_deltav, validate_orbit, success).
+        return build_point_to_point_transfer(transfer_deltav, validate_ejection_orbit, validate_insertion_orbit, success).
     }
     else {
         local adjust_departure is choose build_nop_adjustment(origin)
@@ -38,7 +39,7 @@ local function build_transfer_details {
         local adjust_arrival is choose build_nop_adjustment(destination)
             if to_vessel else build_adjust_arrival(destination, settings).
 
-        return build_soi_to_soi_transfer(transfer_deltav, validate_orbit, success, origin, adjust_departure, adjust_arrival).
+        return build_soi_to_soi_transfer(transfer_deltav, validate_ejection_orbit, validate_insertion_orbit, success, origin, adjust_departure, adjust_arrival).
     }
 }
 
@@ -69,7 +70,7 @@ local function below_soi_threshold {
 // However for moons with large SOI to Periapsis ratio, the minimum value can be
 // high. For example a direct Hohmann transfer from Laythe to Vall is impossible
 // as Laythe's minimum escape velocity is greater than this value.
-local function build_validate_orbit {
+local function build_validate_ejection_orbit {
     parameter from_vessel.
 
     if from_vessel {
@@ -79,13 +80,43 @@ local function build_validate_orbit {
         }.
     }
     else {
-        local minimum_escape_velocity is rsvp:minimum_escape_velocity(ship:orbit).
+        // Apoapsis is the worse case scenario. Use this rather than periapsis,
+        // as at this stage we don't know exactly where in the vessel's orbit
+        // the departure manuever node will end up.
+        local minimum_escape_velocity is rsvp:minimum_escape_velocity(ship:orbit:body, ship:orbit:apoapsis).
 
         return {
             parameter details.
             return details:dv1:mag > minimum_escape_velocity.
         }.
     }
+}
+
+// Similar to the previous function, returns a delegate that makes sure the
+// injection orbit is above the minimum possible velocity based on the
+// desired periapsis.
+//
+// This is to prevent errors when in some situtations the initial point to point
+// transfer returned from the Lambert solver is below the minimum possible. 
+local function build_validate_insertion_orbit {
+    parameter to_vessel, destination, settings.
+
+    if to_vessel {
+        return {
+            parameter details.
+            return true.
+        }.
+    }
+    else {
+        // Minimum ejection and insertion values are the same due to the fact
+        // orbits are symmetrical when direction is reversed.
+        local minimum_insertion_velocity is rsvp:minimum_escape_velocity(destination, settings:final_orbit_periapsis).
+
+        return {
+            parameter details.
+            return details:dv2:mag > minimum_insertion_velocity.
+        }.
+    }    
 }
 
 local function build_ejection_deltav {
@@ -188,20 +219,21 @@ local function build_adjust_arrival {
 
 // Point to point transfer neglecting the size of any SOIs.
 local function build_point_to_point_transfer {
-    parameter transfer_deltav, validate_orbit, success.
+    parameter transfer_deltav, validate_ejection_orbit, validate_insertion_orbit, success.
 
     return {
         parameter flip_direction, departure_time, arrival_time.
 
         local details is transfer_deltav(flip_direction, departure_time, arrival_time).
+        local validated is validate_ejection_orbit(details) and validate_insertion_orbit(details).
 
-        return choose success(details) if validate_orbit(details) else failure().
+        return choose success(details) if validated else failure().
     }.
 }
 
 // Iteratively refine initial transfer in order to take SOI size into account.
 local function build_soi_to_soi_transfer {
-    parameter transfer_deltav, validate_orbit, success, origin, adjust_departure, adjust_arrival.
+    parameter transfer_deltav, validate_ejection_orbit, validate_insertion_orbit, success, origin, adjust_departure, adjust_arrival.
 
     local mu is origin:body:mu.
 
@@ -209,8 +241,9 @@ local function build_soi_to_soi_transfer {
         parameter flip_direction, departure_time, arrival_time.
 
         local details is transfer_deltav(flip_direction, departure_time, arrival_time).
+        local validated is validate_ejection_orbit(details) and validate_insertion_orbit(details).
 
-        if not validate_orbit(details) {
+        if not validated {
             return failure().
         }
 
@@ -233,8 +266,9 @@ local function build_soi_to_soi_transfer {
             set delta to (details:dv1 - dv1):mag + (details:dv2 - dv2):mag.
             set details to lex("dv1", dv1, "dv2", dv2, "osv1", departure).
             set iterations to iterations + 1.
+            set validated to validate_ejection_orbit(details) and validate_insertion_orbit(details).
 
-            if iterations < 10 and delta < previous_delta and validate_orbit(details) {
+            if iterations < 10 and delta < previous_delta and validated {
                 set previous_delta to delta.
             }
             else {

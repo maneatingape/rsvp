@@ -254,11 +254,11 @@ local function none_insertion_deltav {
 // the current apoapsis, giving the maximum possible value. If the ejection burn
 // takes place anywhere else on the orbit, then the actual value will be lower.
 local function minimum_escape_velocity {
-    parameter orbit.
+    parameter celestial_body, altitude.
 
-    local mu is orbit:body:mu.
-    local r1 is orbit:body:radius + orbit:apoapsis.
-    local r2 is orbit:body:soiradius.
+    local mu is celestial_body:mu.
+    local r1 is celestial_body:radius + altitude.
+    local r2 is celestial_body:soiradius.
 
     local a is (r1 + r2) / 2.
     local ve is sqrt(mu * (2 / r2 - 1 / a)).
