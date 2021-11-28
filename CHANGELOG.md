@@ -1,5 +1,10 @@
 # Changelog
 
+## v8
+
+### Bug Fixes
+* Add a safety check that the predicted insertion velocity at the boundary of the destination's SOI is above the minimum possible (based on the desired final periapsis). This is similar to the existing check that the ejection velocity from the origin is greater than the minimum possible. This prevents an error occuring during transfer refinement in some scenarios when the initial raw point-to-point Lambert solution predicts an intercept velocity less than this minimum.
+
 ## v7
 
 ### New Features
