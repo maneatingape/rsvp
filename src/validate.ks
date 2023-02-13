@@ -56,9 +56,6 @@ local function validate_prerequisites {
     else if hasnode {
         problem(102, "Existing maneuver node already exists").
     }
-    if ship:status <> "orbiting" {
-        problem(103, "Ship '" + ship:name + "' is not in stable orbit").
-    }
 
     if not career():canmakenodes {
         problem(104, "Career mode has not unlocked maneuver nodes").
@@ -140,6 +137,15 @@ local function validate_options {
             problem(304, "Option '" + key + "'' must be less than " + limit).
         }
     }
+
+    // Manuever nodes can only be created when the ship is in a stable orbit
+    if ship:status <> "orbiting" {
+        local key is "create_maneuver_nodes".
+
+        if options:haskey(key) and options[key] <> "none" {
+            problem(305, "Cannot create manuever nodes when ship '" + ship:name + "' is not in stable orbit").
+        }
+    }    
 
     // Check for unknown keys that indicate a typo.
     local found is list().
