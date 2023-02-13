@@ -11,12 +11,12 @@ export("body_to_body", body_to_body@).
 // from the Lambert solver are more than accurate enough to be used directly
 // resulting in very precise intercepts, even over interplanetary distances.
 local function vessel_to_vessel {
-    parameter destination, settings, transfer, result.
+    parameter destination, settings, craft_transfer, result.
 
     // Calculate transfer orbit details from search result
-    local flip_direction is transfer:flip_direction.
-    local departure_time is transfer:departure_time.
-    local arrival_time is transfer:arrival_time.
+    local flip_direction is craft_transfer:flip_direction.
+    local departure_time is craft_transfer:departure_time.
+    local arrival_time is craft_transfer:arrival_time.
     local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time).
 
     // 1st node
@@ -45,13 +45,13 @@ local function vessel_to_vessel {
 // Vessel to body rendezvous requires some tweaking in order for the ship
 // to avoid colliding directly with the center of the destination.
 local function vessel_to_body {
-    parameter destination, settings, transfer, result.
+    parameter destination, settings, craft_transfer, result.
 
     // Calculate transfer orbit details from search result. This transfer will be
     // *too* accurate with a trajectory that collides with the center of the body.
-    local flip_direction is transfer:flip_direction.
-    local departure_time is transfer:departure_time.
-    local arrival_time is transfer:arrival_time.
+    local flip_direction is craft_transfer:flip_direction.
+    local departure_time is craft_transfer:departure_time.
+    local arrival_time is craft_transfer:arrival_time.
     local details is rsvp:transfer_deltav(ship, destination, flip_direction, departure_time, arrival_time).
 
     // Refine the transfer, taking destination's SOI into account.
@@ -99,10 +99,10 @@ local function vessel_to_body {
 // Vessel to body rendezvous is not as accurate as other transfer types, so a
 // correction burn is recommended once in interplanetary space.
 local function body_to_vessel {
-    parameter destination, settings, transfer, result.
+    parameter destination, settings, craft_transfer, result.
 
     // 1st node
-    local maybe is create_body_departure_node(false, destination, settings, transfer).
+    local maybe is create_body_departure_node(false, destination, settings, craft_transfer).
 
     // Node creation could fail due to unexpected encounter
     if not maybe:success {
@@ -112,7 +112,7 @@ local function body_to_vessel {
     // Check for unexpected encounters
     local maneuver is maybe:maneuver.
     local expected_patches is list(ship:body, ship:body:body).
-    local arrival_time is transfer:arrival_time.
+    local arrival_time is craft_transfer:arrival_time.
     local validate_patches is maneuver:validate_patches(expected_patches, arrival_time).
 
     if not validate_patches:success {
@@ -142,10 +142,10 @@ local function body_to_vessel {
 // Body to body rendezvous is reasonably accurate as the predicted intercept
 // can be used to refine the initial transfer.
 local function body_to_body {
-    parameter destination, settings, transfer, result.
+    parameter destination, settings, craft_transfer, result.
 
     // 1st node
-    local maybe is create_body_departure_node(true, destination, settings, transfer).
+    local maybe is create_body_departure_node(true, destination, settings, craft_transfer).
 
     // Node creation could fail due to unexpected encounter
     if not maybe:success {
@@ -155,7 +155,7 @@ local function body_to_body {
     // Check for unexpected encounters
     local maneuver is maybe:maneuver.
     local expected_patches is list(ship:body, ship:body:body, destination).
-    local arrival_time is transfer:arrival_time.
+    local arrival_time is craft_transfer:arrival_time.
     local validate_patches is maneuver:validate_patches(expected_patches, arrival_time).
 
     if not validate_patches:success {
@@ -213,11 +213,11 @@ local function create_body_arrival_node {
 // then feedback this error in order to correct our initial guess. This
 // converges rapidly to an accurate intercept.
 local function create_body_departure_node {
-    parameter to_body, destination, settings, transfer.
+    parameter to_body, destination, settings, craft_transfer.
 
-    local flip_direction is transfer:flip_direction.
-    local departure_time is transfer:departure_time.
-    local arrival_time is transfer:arrival_time.
+    local flip_direction is craft_transfer:flip_direction.
+    local departure_time is craft_transfer:departure_time.
+    local arrival_time is craft_transfer:arrival_time.
 
     local parent is ship:body.
     local grandparent is parent:body.
@@ -286,9 +286,9 @@ local function create_maneuver_node_in_correct_location {
     parameter departure_time, departure_deltav.
 
     function ejection_details {
-        parameter cost_only, v.
+        parameter cost_only, v1.
 
-        local epoch_time is v:x.
+        local epoch_time is v1:x.
         local osv is rsvp:orbital_state_vectors(ship, epoch_time).
         local ejection_deltav is rsvp:vessel_ejection_deltav_from_body(ship:body, osv, departure_deltav).
 

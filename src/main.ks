@@ -39,7 +39,7 @@ local function goto {
     // Find the lowest deltav cost transfer using the specified settings.
     local settings is maybe:settings.
     local tuple is rsvp:find_launch_window(destination, settings).
-    local transfer is tuple:transfer.
+    local craft_transfer is tuple:transfer.
     local result is tuple:result.
 
     // If no node creation has been requested return predicted transfer details,
@@ -49,7 +49,7 @@ local function goto {
         // "vessel" or "body", so can be used to construct the function
         // names for transfer, for example "vessel_to_vessel" or "body_to_body".
         local key is settings:origin_type + "_to_" + settings:destination_type.
-        set result to rsvp[key](destination, settings, transfer, result).
+        set result to rsvp[key](destination, settings, craft_transfer, result).
 
         if not result:success {
             // Print details to the console

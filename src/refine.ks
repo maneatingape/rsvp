@@ -54,9 +54,9 @@ local function failure {
 // All planets except Jool in the stock game are under this threshold.
 // All moons except Gilly and Pol are over this threshold.
 local function below_soi_threshold {
-    parameter body.
+    parameter destination_body.
 
-    local ratio is body:soiradius / body:orbit:periapsis.
+    local ratio is destination_body:soiradius / destination_body:orbit:periapsis.
 
     return ratio < 0.01.
 }
@@ -120,12 +120,12 @@ local function build_validate_insertion_orbit {
 }
 
 local function build_ejection_deltav {
-    parameter from_vessel, origin, altitude.
+    parameter from_vessel, origin, craft_altitude.
 
     local prefix is choose "vessel" if from_vessel else "equatorial".
     local delegate is rsvp[prefix + "_ejection_deltav"].
 
-    return delegate:bind(origin, altitude).
+    return delegate:bind(origin, craft_altitude).
 }
 
 local function build_insertion_deltav {
@@ -177,15 +177,15 @@ local function build_nop_adjustment {
 // One minor quirk, the orbit orientation is based on an injection trajectory,
 // so a prograde ejection is a "retrograde" injection.
 local function build_adjust_departure {
-    parameter body, altitude.
+    parameter origin_body, craft_altitude.
 
     return {
         parameter epoch_time, deltav.
 
-        local duration is rsvp:duration_from_soi_edge(body, altitude, deltav).
+        local duration is rsvp:duration_from_soi_edge(origin_body, craft_altitude, deltav).
         local adjusted_time is epoch_time + duration.
-        local osv is rsvp:orbital_state_vectors(body, adjusted_time).
-        local offset is rsvp:offset_from_soi_edge(body, altitude, "retrograde", deltav).
+        local osv is rsvp:orbital_state_vectors(origin_body, adjusted_time).
+        local offset is rsvp:offset_from_soi_edge(origin_body, craft_altitude, "retrograde", deltav).
 
         osv:add("adjusted_position", osv:position + offset).
         osv:add("adjusted_time", adjusted_time).
@@ -197,18 +197,18 @@ local function build_adjust_departure {
 // Calculate the position that a vessel should enter the SOI, in order to
 // end up at the desired orientation and altitude.
 local function build_adjust_arrival {
-    parameter body, settings.
+    parameter destination_body, settings.
 
-    local altitude is settings:final_orbit_periapsis.
+    local craft_altitude is settings:final_orbit_periapsis.
     local orientation is settings:final_orbit_orientation.
 
     return {
         parameter epoch_time, deltav.
 
-        local duration is rsvp:duration_from_soi_edge(body, altitude, deltav).
+        local duration is rsvp:duration_from_soi_edge(destination_body, craft_altitude, deltav).
         local adjusted_time is epoch_time - duration.
-        local osv is rsvp:orbital_state_vectors(body, adjusted_time).
-        local offset is rsvp:offset_from_soi_edge(body, altitude, orientation, deltav).
+        local osv is rsvp:orbital_state_vectors(destination_body, adjusted_time).
+        local offset is rsvp:offset_from_soi_edge(destination_body, craft_altitude, orientation, deltav).
 
         osv:add("adjusted_position", osv:position + offset).
         osv:add("adjusted_time", adjusted_time).

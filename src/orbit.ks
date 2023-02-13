@@ -68,9 +68,9 @@ local function orbital_state_vectors {
     local position is positionat(orbitable, epoch_time) - parent:position.
     // "velocityat" already returns orbital velocity relative to the parent
     // body, so no further adjustment is needed.
-    local velocity is velocityat(orbitable, epoch_time):orbit.
+    local craft_velocity is velocityat(orbitable, epoch_time):orbit.
 
-    return lex("position", position, "velocity", velocity).
+    return lex("position", position, "velocity", craft_velocity).
 }
 
 // Calculate the delta-v required to eject into a hyperbolic transfer orbit
@@ -88,10 +88,10 @@ local function orbital_state_vectors {
 // The "body_insertion_deltav" function comment contains details on
 // the formulas used to calculate "v1" and "ve".
 local function equatorial_ejection_deltav {
-    parameter origin, altitude, transfer_details.
+    parameter origin, craft_altitude, transfer_details.
 
     local mu is origin:mu.
-    local r1 is origin:radius + altitude.
+    local r1 is origin:radius + craft_altitude.
     local r2 is origin:soiradius.
 
     local v1 is sqrt(mu / r1).
@@ -112,7 +112,7 @@ local function equatorial_ejection_deltav {
 // Vessels have no SOI or gravity so the delta-v required is exactly the
 // transfer orbit departure or arrival delta-v.
 local function vessel_ejection_deltav {
-    parameter origin, altitude, transfer_details.
+    parameter origin, craft_altitude, transfer_details.
 
     return transfer_details:dv1:mag.
 }
@@ -208,10 +208,10 @@ local function vessel_ejection_deltav_from_body {
 // Taking the square root of equation 5 then subtracting 'v1" gives the delta-v
 // required to capture into the desired orbit.
 local function orbit_insertion_deltav {
-    parameter is_circular, destination, altitude, arrival_velocity.
+    parameter is_circular, destination, craft_altitude, arrival_velocity.
 
     local mu is destination:mu.
-    local r1 is destination:radius + altitude.
+    local r1 is destination:radius + craft_altitude.
     local r2 is destination:soiradius.
 
     // For elliptical orbits set apoapsis to 99% of the SOI radius
@@ -228,14 +228,14 @@ local function orbit_insertion_deltav {
 // Vessels have no SOI or gravity so the delta-v required is exactly the
 // transfer orbit departure or arrival delta-v.
 local function vessel_insertion_deltav {
-    parameter destination, altitude, arrival_velocity.
+    parameter destination, craft_altitude, arrival_velocity.
 
     return arrival_velocity:mag.
 }
 
 // Calculate the delta-v required for a flyby, aerocapture or extreme lithobrake...
 local function none_insertion_deltav {
-    parameter destination, altitude, arrival_velocity.
+    parameter destination, craft_altitude, arrival_velocity.
 
     return 0.
 }
@@ -254,10 +254,10 @@ local function none_insertion_deltav {
 // the current apoapsis, giving the maximum possible value. If the ejection burn
 // takes place anywhere else on the orbit, then the actual value will be lower.
 local function minimum_escape_velocity {
-    parameter celestial_body, altitude.
+    parameter celestial_body, craft_altitude.
 
     local mu is celestial_body:mu.
-    local r1 is celestial_body:radius + altitude.
+    local r1 is celestial_body:radius + craft_altitude.
     local r2 is celestial_body:soiradius.
 
     local a is (r1 + r2) / 2.
@@ -329,26 +329,26 @@ local function min_period {
 // The mean anomaly increases to zero as the object approaches periapsis, then
 // becomes positive and continously increasing until the object leaves the SOI.
 local function time_at_periapsis {
-    parameter orbit.
+    parameter craft_orbit.
 
     // By definition, mean anomaly is zero at periapsis.
-    return time_at_mean_anomaly(orbit, 0).
+    return time_at_mean_anomaly(craft_orbit, 0).
 }
 
 // Calculate the universal time for an object at a certain point in an orbit
 // given the mean anomaly at that point.
 local function time_at_mean_anomaly {
-    parameter orbit, M.
+    parameter craft_orbit, M.
 
     // Calculate mean motion "n" using absolute value of semi-majoraxis
     // to handle both elliptical and hyperbolic cases
-    local mu is orbit:body:mu.
-    local a is orbit:semimajoraxis.
+    local mu is craft_orbit:body:mu.
+    local a is craft_orbit:semimajoraxis.
     local n is sqrt(mu / abs(a ^ 3)).
 
     // Get reference mean anomaly and epoch time.
-    local t0 is orbit:epoch.
-    local M0 is orbit:meananomalyatepoch * constant:degtorad. // Careful with units
+    local t0 is craft_orbit:epoch.
+    local M0 is craft_orbit:meananomalyatepoch * constant:degtorad. // Careful with units
 
     // Calculate mean anomaly difference, clamping to the range [0, 2π]
     // so that all times are in the future.
@@ -367,9 +367,9 @@ local function time_at_soi_edge {
     parameter destination.
 
     local r2 is destination:body:soiradius.
-    local orbit is destination:orbit.
-    local a is orbit:semimajoraxis.
-    local e is orbit:eccentricity.
+    local destination_orbit is destination:orbit.
+    local a is destination_orbit:semimajoraxis.
+    local e is destination_orbit:eccentricity.
 
     // Calculate mean anomaly from eccentric anomaly using hyperbolic variant
     // of Keplers' equation.
@@ -378,7 +378,7 @@ local function time_at_soi_edge {
     local H is ln(cosh_H + sinh_H).
     local M is e * sinh_H - H.
 
-    return time_at_mean_anomaly(orbit, M).
+    return time_at_mean_anomaly(destination_orbit, M).
 }
 
 // Calculate the time duration that a vessel will take from the edge of
@@ -388,10 +388,10 @@ local function time_at_soi_edge {
 // * Derives the orbital parameters from arrival velocity and desired periapsis.
 // * Handles both hyperbolic and elliptical injection orbits.
 local function duration_from_soi_edge {
-    parameter destination, altitude, arrival_deltav.
+    parameter destination, craft_altitude, arrival_deltav.
 
     local mu is destination:mu.
-    local r1 is destination:radius + altitude.
+    local r1 is destination:radius + craft_altitude.
     local r2 is destination:soiradius.
 
     local v2 is arrival_deltav:sqrmagnitude.
@@ -434,36 +434,36 @@ local function duration_from_soi_edge {
 // the equations considerably. As these equations use KSP's coordinate system,
 // the x-z plane is the ecliptic and the y-axis is the north pole of the sun.
 local function offset_from_soi_edge {
-    parameter destination, altitude, orientation, arrival_deltav.
+    parameter destination, craft_altitude, orientation, arrival_deltav.
 
     local mu is destination:mu.
-    local r1 is destination:radius + altitude.
+    local r1 is destination:radius + craft_altitude.
     local r2 is destination:soiradius.
 
-    local v is arrival_deltav.
-    local v2 is v:sqrmagnitude.
+    local v1 is arrival_deltav.
+    local v2 is v1:sqrmagnitude.
     local ve is sqrt(v2 + mu * (2 / r1 - 2 / r2)).
 
     // Specific angular momentum vector, chosen to minimize inclination.
     local h_mag is ve * r1.
-    local n_mag is v:x ^ 2 + v:z ^ 2.
+    local n_mag is v1:x ^ 2 + v1:z ^ 2.
     local h is "none".
 
     if orientation = "polar" {
-        set h to v(v:z, 0, -v:x) * (h_mag / sqrt(n_mag)).
+        set h to v(v1:z, 0, -v1:x) * (h_mag / sqrt(n_mag)).
     }
     else {
         local sign is choose 1 if orientation = "prograde" else -1.
         local cos_i is sign * sqrt(n_mag / v2).
-        set h to v(-v:x * v:y / n_mag, 1, -v:y * v:z / n_mag) * (h_mag * cos_i).
+        set h to v(-v1:x * v1:y / n_mag, 1, -v1:y * v1:z / n_mag) * (h_mag * cos_i).
     }
 
-    // Given "v", "h" and "delta" (the dot product of "r" and "v")
+    // Given "v1", "h" and "delta" (the dot product of "r" and "v1")
     // derive the position vector "r".
     local delta is sqrt(v2 * r2 ^ 2 - h_mag ^ 2).
-    local r_x is delta * v:x + h:z * v:y - h:y * v:z.
-    local r_y is delta * v:y + h:x * v:z - h:z * v:x.
-    local r_z is delta * v:z + h:y * v:x - h:x * v:y.
+    local r_x is delta * v1:x + h:z * v1:y - h:y * v1:z.
+    local r_y is delta * v1:y + h:x * v1:z - h:z * v1:x.
+    local r_z is delta * v1:z + h:y * v1:x - h:x * v1:y.
 
     return v(r_x, r_y, r_z) / v2.
 }

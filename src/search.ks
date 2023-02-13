@@ -66,7 +66,7 @@ local function find_launch_window {
     local transfer_details is rsvp:build_transfer_details(origin, destination, settings).
 
     // Find lowest deltav transfer.
-    local transfer is iterated_local_search(
+    local craft_transfer is iterated_local_search(
         settings:verbose,
         earliest_departure,
         search_duration,
@@ -76,15 +76,15 @@ local function find_launch_window {
         transfer_details).
 
     // Re-run the Lambert solver to obtain deltav values.
-    local details is transfer_details(transfer:flip_direction, transfer:departure_time, transfer:arrival_time).
+    local details is transfer_details(craft_transfer:flip_direction, craft_transfer:departure_time, craft_transfer:arrival_time).
 
     // Construct nested result structure
-    local departure is lex("time", transfer:departure_time, "deltav", details:ejection).
-    local arrival is lex("time", transfer:arrival_time, "deltav", details:insertion).
+    local departure is lex("time", craft_transfer:departure_time, "deltav", details:ejection).
+    local arrival is lex("time", craft_transfer:arrival_time, "deltav", details:insertion).
     local predicted is lex("departure", departure, "arrival", arrival).
     local result to lex("success", true, "predicted", predicted).
 
-    return lex("transfer", transfer, "result", result).
+    return lex("transfer", craft_transfer, "result", result).
 }
 
 // Local search algorithms such as hill climbing, gradient descent or
@@ -142,15 +142,15 @@ local function iterated_local_search {
         local initial_deltav is choose retrograde_deltav if flip_direction else prograde_deltav.
 
         function cost {
-            parameter flip_direction, v.
+            parameter flip_direction, v1.
 
             // y is always bounded to the interval [0, max_time_of_flight]
-            if v:x < min_x or v:x > max_x or v:y < 0 or v:y > max_time_of_flight {
+            if v1:x < min_x or v1:x > max_x or v1:y < 0 or v1:y > max_time_of_flight {
                 return "max".
             }
             else {
                 set invocations to invocations + 1.
-                local details is total_deltav(flip_direction, v:x, v:x + v:y).
+                local details is total_deltav(flip_direction, v1:x, v1:x + v1:y).
                 return details:ejection + details:insertion.
             }
         }
@@ -196,9 +196,9 @@ local function iterated_local_search {
 local function seconds_to_kerbin_time {
     parameter seconds.
 
-    local timespan is time(seconds).
+    local time_span is time(seconds).
 
-    return timespan:calendar + " " + timespan:clock.
+    return time_span:calendar + " " + time_span:clock.
 }
 
 // Safely round a variable that could be a string

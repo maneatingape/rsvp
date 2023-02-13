@@ -36,7 +36,7 @@ local function create_raw_maneuver {
 // system, however maneuver node's prograde, radial and normal components are
 // relative to the vessel's velocity and position *at the time of the node*.
 local function maneuver_node_vector_projection {
-    parameter osv, velocity.
+    parameter osv, craft_velocity.
 
     // Unit vectors in vessel prograde and normal directions.
     local unit_prograde is osv:velocity:normalized.
@@ -47,11 +47,11 @@ local function maneuver_node_vector_projection {
     local unit_radial is vcrs(unit_normal, unit_prograde).
 
     // Components of velocity parallel to respective unit vectors.
-    local radial is vdot(unit_radial, velocity).
-    local normal is vdot(unit_normal, velocity).
-    local prograde is vdot(unit_prograde, velocity).
+    local component_radial is vdot(unit_radial, craft_velocity).
+    local component_normal is vdot(unit_normal, craft_velocity).
+    local component_prograde is vdot(unit_prograde, craft_velocity).
 
-    return v(radial, normal, prograde).
+    return v(component_radial, component_normal, component_prograde).
 }
 
 local function node_time {
@@ -78,16 +78,16 @@ local function node_delete {
 local function patch_details {
     parameter maneuver, from_vessel, destination.
 
-    local orbit is maneuver:orbit.
+    local predicted_orbit is maneuver:orbit.
 
-    until not orbit:hasnextpatch {
-        local soi_time is time():seconds + orbit:nextpatcheta.
-        set orbit to orbit:nextpatch.
+    until not predicted_orbit:hasnextpatch {
+        local soi_time is time():seconds + predicted_orbit:nextpatcheta.
+        set predicted_orbit to predicted_orbit:nextpatch.
 
-        if orbit:body = destination {
+        if predicted_orbit:body = destination {
             local soi_velocity is velocityat(ship, soi_time):orbit.
-            local periapsis_altitude is orbit:periapsis.
-            local periapsis_time is rsvp:time_at_periapsis(orbit).
+            local periapsis_altitude is predicted_orbit:periapsis.
+            local periapsis_time is rsvp:time_at_periapsis(predicted_orbit).
 
             // When the destination is a moon (rather than a planet) then
             // "velocityat" returns value relative to the parent planet *not*
@@ -115,14 +115,14 @@ local function patch_details {
 local function validate_patches {
     parameter maneuver, expected, arrival_time.
 
-    local orbit is maneuver:orbit.
+    local predicted_orbit is maneuver:orbit.
     local actual is list().
 
-    actual:add(orbit:body).
+    actual:add(predicted_orbit:body).
 
-    until not orbit:hasnextpatch or arrival_time < time():seconds + orbit:nextpatcheta {
-        set orbit to orbit:nextpatch.
-        actual:add(orbit:body).
+    until not predicted_orbit:hasnextpatch or arrival_time < time():seconds + predicted_orbit:nextpatcheta {
+        set predicted_orbit to predicted_orbit:nextpatch.
+        actual:add(predicted_orbit:body).
     }
 
     if list_equals(expected, actual) {
