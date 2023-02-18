@@ -24,7 +24,7 @@ This short video shows these features in action:
 1. Go to the [Releases](https://github.com/maneatingape/rsvp/releases) tab, then download latest version of `rsvp.zip`.
 2. Unzip into `<KSP install location>/Ships/Script` directory. This step adds the library to the kOS archive volume, making it available to all vessels.
 3. Launch a craft into a stable orbit of Kerbin.
-3. Run this script from the craft:
+4. Run this script from the craft:
     ```
     set config:ipu to 2000.
     runoncepath("0:/rsvp/main").
@@ -111,7 +111,7 @@ The insertion orbit can be one of three types:
 * **Circular**
     Capture into a circular orbit at the altitude specified by `final_orbit_periapsis`. Does not change inclination. If the origin and destination bodies are inclined then this orbit will be inclined too.
 * **Elliptical**
-    Capture into a highly elliptical orbit with apoapsis *just* inside the destination's SOI and periapsis at the altitude specified by `final_orbit_periapsis`. This can come in useful if the vessel will send a separate lander down to the surface or its intended to visit moons of the destination.
+    Capture into a highly elliptical orbit with apoapsis *just* inside the destination's SOI and periapsis at the altitude specified by `final_orbit_periapsis`. This can come in useful if the vessel will send a separate lander down to the surface or the intention is to visit moons of the destination.
 
 | Key | Default value | Accepted values |
 |:----|:--------------|:----------------|
