@@ -1,5 +1,13 @@
 # Changelog
 
+## v9
+
+### Bug Fixes
+* Support kOS 1.4.0.0 by renaming local variables to avoid conflict with built-in names.
+
+### New Features
+* The restriction on running the script when the craft is not in a stable orbit has been relaxed, so that finding future transfer times can happen when on the ground. Maneuver nodes can still only be created when the craft is in a stable orbit.
+
 ## v8
 
 ### Bug Fixes
