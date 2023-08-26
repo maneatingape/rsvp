@@ -1,7 +1,10 @@
-# RSVP [![Release Version](https://img.shields.io/github/v/release/maneatingape/rsvp)](https://github.com/maneatingape/rsvp/releases/latest) [![Release Downloads](https://img.shields.io/github/downloads/maneatingape/rsvp/total)](https://github.com/maneatingape/rsvp/releases/latest)
+# RSVP [![version-badge]][release-link] [![download-badge]][release-link]
 
-*RSVP* is a [kOS](https://ksp-kos.github.io/KOS/) library that finds orbital [launch windows](https://en.wikipedia.org/wiki/Launch_window) in the game [Kerbal Space Program](https://www.kerbalspaceprogram.com/).
-The acronym stands for "Rendezvous s’il vous plaît", a playful pun on the regular meaning of the phrase.
+[version-badge]: https://img.shields.io/github/v/release/maneatingape/rsvp
+[download-badge]: https://img.shields.io/github/downloads/maneatingape/rsvp/total
+[release-link]: https://github.com/maneatingape/rsvp/releases/latest
+
+*RSVP* is a [kOS](https://ksp-kos.github.io/KOS/) library that finds orbital [launch windows](https://en.wikipedia.org/wiki/Launch_window) in the game [Kerbal Space Program](https://www.kerbalspaceprogram.com/). The acronym stands for "Rendezvous s’il vous plaît", a playful pun on the regular meaning of the phrase.
 
 This library enables players to make automated low delta-v transfers between two planets or vessels in-game, either directly from their own kOS scripts or from the kOS console. It provides a scriptable alternative to existing tools, such as the excellent web based [Launch Window Planner](https://alexmoon.github.io/ksp/) or the snazzy [MechJeb Maneuver Planner](https://github.com/MuMech/MechJeb2/wiki/Maneuver-Planner).
 
